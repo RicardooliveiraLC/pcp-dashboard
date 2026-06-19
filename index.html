@@ -1,0 +1,1573 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dashboard PCP — Label Code</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+:root{
+  --bg:#07091a;--card:#0e1330;--card2:#121840;--border:rgba(255,255,255,.07);
+  --red:#e63946;--red2:#ff6b6b;--cyan:#00d4ff;--purple:#7c4dff;
+  --text:#e8eaf6;--muted:#6b7a9f;--success:#22c55e;--warn:#f59e0b;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);font-size:13px;display:flex;flex-direction:column}
+
+/* ── Header ───────────────────────────────── */
+.hdr{flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;
+  padding:10px 20px;background:var(--card);border-bottom:1px solid var(--border);
+  box-shadow:0 2px 20px rgba(0,0,0,.4)}
+.hdr-logo{display:flex;align-items:center;gap:10px}
+.hdr-badge{width:34px;height:34px;background:linear-gradient(135deg,var(--red),#c0392b);
+  border-radius:8px;display:flex;align-items:center;justify-content:center;
+  font-weight:900;font-size:14px;color:#fff;letter-spacing:-1px}
+.hdr-title{font-size:15px;font-weight:700;color:#fff;letter-spacing:.4px}
+.hdr-sub{font-size:10px;color:var(--muted);margin-top:1px}
+.hdr-right{display:flex;gap:8px;align-items:center}
+.badge-status{font-size:10px;padding:4px 10px;border-radius:20px;
+  background:rgba(255,255,255,.05);border:1px solid var(--border);color:var(--muted)}
+.badge-status.on{background:rgba(34,197,94,.1);border-color:rgba(34,197,94,.4);color:var(--success)}
+.btn{padding:6px 14px;border:none;border-radius:6px;cursor:pointer;font-size:11px;
+  font-weight:600;letter-spacing:.3px;transition:all .15s}
+.btn-red{background:linear-gradient(135deg,var(--red),#c0392b);color:#fff}
+.btn-red:hover{filter:brightness(1.15)}
+.btn-ghost{background:rgba(255,255,255,.06);color:var(--text);border:1px solid var(--border)}
+.btn-ghost:hover{background:rgba(255,255,255,.1)}
+
+/* ── KPI Row ──────────────────────────────── */
+.kpi-row{flex:0 0 auto;display:grid;grid-template-columns:repeat(4,1fr);gap:1px;
+  background:rgba(255,255,255,.04);border-bottom:1px solid var(--border)}
+.kpi{background:var(--card);padding:12px 20px;position:relative;overflow:hidden}
+.kpi::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;
+  background:linear-gradient(to bottom,var(--red),transparent)}
+.kpi-lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px}
+.kpi-val{font-size:28px;font-weight:800;color:#fff;line-height:1}
+.kpi-val.accent{background:linear-gradient(135deg,var(--red2),var(--red));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.kpi-glow{position:absolute;right:-10px;top:50%;transform:translateY(-50%);
+  width:60px;height:60px;border-radius:50%;background:var(--red);opacity:.07;filter:blur(20px)}
+
+/* ── Filter Bar ───────────────────────────── */
+.filters{flex:0 0 auto;display:flex;gap:14px;align-items:flex-end;padding:8px 20px;
+  background:rgba(14,19,48,.8);border-bottom:1px solid var(--border);flex-wrap:wrap}
+.fg{display:flex;flex-direction:column;gap:3px}
+.flbl{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px}
+select,input[type=date]{
+  padding:5px 10px;background:rgba(255,255,255,.05);border:1px solid var(--border);
+  border-radius:6px;color:var(--text);font-size:11px;cursor:pointer;
+  appearance:none;-webkit-appearance:none}
+select:focus,input[type=date]:focus{outline:none;border-color:var(--red);
+  box-shadow:0 0 0 2px rgba(230,57,70,.2)}
+option{background:#1a1f45;color:var(--text)}
+
+/* ── Main grid ────────────────────────────── */
+.main{flex:1 1 0;min-height:0;display:grid;grid-template-columns:38% 62%;gap:10px;padding:10px 20px;overflow:hidden}
+
+/* ── Panels ───────────────────────────────── */
+.panel{background:var(--card);border:1px solid var(--border);border-radius:10px;
+  padding:14px;display:flex;flex-direction:column;overflow:hidden}
+.ptitle{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;
+  letter-spacing:.6px;margin-bottom:10px;flex:0 0 auto}
+
+/* left column: machine chart scrollable */
+.machine-scroll{flex:1 1 0;overflow-y:auto;overflow-x:hidden;min-height:0}
+.machine-scroll::-webkit-scrollbar{width:4px}
+.machine-scroll::-webkit-scrollbar-track{background:transparent}
+.machine-scroll::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:2px}
+/* inner must have explicit height for Chart.js */
+#machineInner{position:relative}
+
+/* right column */
+.right-col{display:flex;flex-direction:column;gap:10px;min-height:0}
+.monthly-wrap{flex:0 0 180px;position:relative}
+.bottom-row{flex:1 1 0;min-height:0;display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.gauge-panel{display:flex;flex-direction:column;align-items:center;justify-content:center}
+.gauge-val{font-size:24px;font-weight:800;margin-top:-6px;
+  background:linear-gradient(135deg,var(--red2),var(--red));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.gauge-meta{font-size:9px;color:var(--muted);margin-top:3px}
+.notprog-panel{display:flex;flex-direction:column;overflow:hidden;
+  background:radial-gradient(ellipse at 50% 0%,rgba(230,57,70,.08),transparent 70%)}
+.notprog-half{flex:1 1 0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px}
+.notprog-half+.notprog-half{border-top:1px solid var(--border)}
+.notprog-lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+.notprog-num{font-size:46px;font-weight:900;line-height:1;
+  background:linear-gradient(135deg,var(--red2),var(--red));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.fin-num{font-size:46px;font-weight:900;line-height:1;
+  background:linear-gradient(135deg,#00d4ff,#7c4dff);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent}
+
+/* ── Footer ───────────────────────────────── */
+footer{flex:0 0 auto;text-align:center;padding:6px;font-size:10px;color:var(--muted);
+  background:var(--card);border-top:1px solid var(--border)}
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="hdr">
+  <div class="hdr-logo">
+    <div class="hdr-badge">LC</div>
+    <div>
+      <div class="hdr-title">KPI — ATENDIMENTO À PROGRAMAÇÃO</div>
+      <div class="hdr-sub">Label Code · PCP · Meta 90%</div>
+    </div>
+  </div>
+  <div class="hdr-right">
+    <span class="badge-status" id="fileStatus">📊 Dados embutidos</span>
+    <button class="btn btn-ghost" onclick="document.getElementById('csvIn').click()">⬆ Carregar CSV</button>
+    <input type="file" id="csvIn" accept=".csv" style="display:none" onchange="loadFile(event)">
+    <button class="btn btn-red" onclick="openFSA()">📂 Auto-atualizar</button>
+  </div>
+</div>
+
+<!-- KPI Cards -->
+<div class="kpi-row">
+  <div class="kpi"><div class="kpi-glow"></div><div class="kpi-lbl">No_Prazo</div><div class="kpi-val" id="kOnTime">—</div></div>
+  <div class="kpi"><div class="kpi-glow"></div><div class="kpi-lbl">% Extra s/ Total</div><div class="kpi-val accent" id="kExtra">—</div></div>
+  <div class="kpi"><div class="kpi-glow"></div><div class="kpi-lbl">Total Finalizado</div><div class="kpi-val" id="kTotal">—</div></div>
+  <div class="kpi"><div class="kpi-glow"></div><div class="kpi-lbl">Programado</div><div class="kpi-val" id="kProg">—</div></div>
+</div>
+
+<!-- Filters -->
+<div class="filters">
+  <div class="fg"><span class="flbl">Máquina</span>
+    <select id="fMachine" onchange="render()"><option value="Todos">Todos</option></select>
+  </div>
+  <div class="fg"><span class="flbl">Período</span>
+    <select id="fPeriod" onchange="onPeriodChange()">
+      <option value="latest">Último dia disponível</option>
+      <option value="specific">Data específica</option>
+      <option value="all">Todos os dias</option>
+    </select>
+  </div>
+  <div class="fg" id="dpWrap" style="display:none"><span class="flbl">Data</span>
+    <input type="date" id="fDate" onchange="render()">
+  </div>
+  <div class="fg"><span class="flbl">Auto-refresh</span>
+    <select id="fRefresh" onchange="setAutoRefresh()">
+      <option value="0">Desligado</option>
+      <option value="30">30s</option>
+      <option value="60">1 min</option>
+      <option value="300">5 min</option>
+    </select>
+  </div>
+</div>
+
+<!-- Main -->
+<div class="main">
+  <!-- Left: machine chart -->
+  <div class="panel">
+    <div class="ptitle">⬛ Atendimento por Máquina</div>
+    <div class="machine-scroll">
+      <div id="machineInner"><canvas id="cMachine"></canvas></div>
+    </div>
+  </div>
+
+  <!-- Right column -->
+  <div class="right-col">
+    <div class="panel" style="flex:0 0 auto">
+      <div class="ptitle">📈 Volume Finalizado por Mês · % Atendimento (últimos 6 meses)</div>
+      <div style="position:relative;height:150px"><canvas id="cMonthly"></canvas></div>
+    </div>
+    <div class="bottom-row">
+      <div class="panel gauge-panel">
+        <div class="ptitle">🎯 % Atendimento</div>
+        <canvas id="cGauge" width="190" height="110"></canvas>
+        <div class="gauge-val" id="gaugeVal">—</div>
+        <div class="gauge-meta">▸ Meta: 90%</div>
+      </div>
+      <div class="panel notprog-panel">
+        <div class="notprog-half">
+          <div class="notprog-lbl">Não Programado</div>
+          <div class="notprog-num" id="notProg">—</div>
+        </div>
+        <div class="notprog-half">
+          <div class="notprog-lbl">Finalização no dia</div>
+          <div class="fin-num" id="finEmbalagem">—</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer id="footerTxt">Label Code · PCP</footer>
+
+<script>
+// ─── State ───────────────────────────────────────
+let allData=[], chartM=null, chartMo=null, fsHandle=null, refreshTimer=null;
+
+// ─── Parse CSV ───────────────────────────────────
+function parseCSV(txt){
+  const lines=txt.trim().replace(/^﻿/,'').split('\n');
+  return lines.slice(1).map(l=>{const p=l.split(',');
+    return p.length<7?null:{date:p[0].trim(),machine:p[1].trim(),
+      qty:+p[2]||0,onTime:+p[3]||0,late:+p[4]||0,extra:+p[5]||0,prog:+p[6]||0};
+  }).filter(Boolean);
+}
+
+// ─── File loading ────────────────────────────────
+function loadFile(ev){
+  const f=ev.target.files[0];if(!f)return;
+  const r=new FileReader();
+  r.onload=e=>{allData=parseCSV(e.target.result);
+    setStatus('✅ '+f.name,true);populateMachines();render();};
+  r.readAsText(f,'UTF-8');
+}
+async function openFSA(){
+  if(!window.showOpenFilePicker){alert('Chrome 86+ necessário para auto-atualização.\nUse "Carregar CSV" manualmente.');return;}
+  try{const[h]=await window.showOpenFilePicker({types:[{description:'CSV',accept:{'text/csv':['.csv']}}]});
+    fsHandle=h;setStatus('🔄 '+h.name,true);await readHandle();
+    if(document.getElementById('fRefresh').value==='0')document.getElementById('fRefresh').value='60';
+    setAutoRefresh();}catch(e){}
+}
+async function readHandle(){
+  if(!fsHandle)return;
+  const f=await fsHandle.getFile(),txt=await f.text();
+  allData=parseCSV(txt);populateMachines();render();
+}
+function setStatus(msg,ok){const el=document.getElementById('fileStatus');
+  el.textContent=msg;el.className='badge-status'+(ok?' on':'');}
+function setAutoRefresh(){
+  if(refreshTimer){clearInterval(refreshTimer);refreshTimer=null;}
+  const s=+document.getElementById('fRefresh').value;
+  if(s>0&&fsHandle)refreshTimer=setInterval(readHandle,s*1000);
+}
+function onPeriodChange(){
+  document.getElementById('dpWrap').style.display=
+    document.getElementById('fPeriod').value==='specific'?'':'none';render();
+}
+
+// ─── Machines dropdown ───────────────────────────
+function populateMachines(){
+  const sel=document.getElementById('fMachine'),cur=sel.value;
+  const ms=[...new Set(allData.map(d=>d.machine))].sort();
+  sel.innerHTML='<option value="Todos">Todos</option>';
+  ms.forEach(m=>{const o=document.createElement('option');o.value=o.textContent=m;sel.appendChild(o);});
+  sel.value=ms.includes(cur)?cur:'Todos';
+}
+
+// ─── Filter ──────────────────────────────────────
+function getFiltered(){
+  const mach=document.getElementById('fMachine').value;
+  const period=document.getElementById('fPeriod').value;
+  const dv=document.getElementById('fDate').value;
+  let dateData=[...allData];
+  if(period==='latest'){
+    const last=[...new Set(allData.map(d=>d.date))].sort().pop();
+    dateData=allData.filter(d=>d.date===last);
+    document.getElementById('fDate').value=last;
+  }else if(period==='specific'&&dv) dateData=allData.filter(d=>d.date===dv);
+  const main=mach==='Todos'?dateData:dateData.filter(d=>d.machine===mach);
+  return{main,dateFiltered:dateData};
+}
+
+// ─── KPI calc ────────────────────────────────────
+function kpis(data){
+  const qty=data.reduce((s,r)=>s+r.qty,0);
+  const onTime=data.reduce((s,r)=>s+r.onTime,0);
+  const extra=data.reduce((s,r)=>s+r.extra,0);
+  const prog=data.reduce((s,r)=>s+r.prog,0);
+  return{qty,onTime,extra,prog,
+    pctAtt:prog>0?onTime/prog*100:0,
+    pctExtra:qty>0?extra/qty*100:0};
+}
+
+// ─── Machine chart data ──────────────────────────
+function machData(dateFiltered){
+  const map={};
+  dateFiltered.forEach(r=>{if(!map[r.machine])map[r.machine]={o:0,p:0,q:0};
+    map[r.machine].o+=r.onTime;map[r.machine].p+=r.prog;map[r.machine].q+=r.qty;});
+  return Object.entries(map)
+    .map(([n,v])=>({name:n,pct:v.p>0?+(v.o/v.p*100).toFixed(1):0}))
+    .sort((a,b)=>a.pct-b.pct);
+}
+
+// ─── Monthly data ────────────────────────────────
+function monthData(filtered){
+  const map={};
+  filtered.forEach(r=>{const ym=r.date.slice(0,7);
+    if(!map[ym])map[ym]={qty:0,o:0,p:0};
+    map[ym].qty+=r.qty;map[ym].o+=r.onTime;map[ym].p+=r.prog;});
+  const ent=Object.entries(map).sort((a,b)=>a[0].localeCompare(b[0])).slice(-6);
+  return{labels:ent.map(([k])=>k),
+    vols:ent.map(([,v])=>v.qty),
+    pcts:ent.map(([,v])=>v.p>0?+(v.o/v.p*100).toFixed(1):0)};
+}
+
+// ─── Gauge (canvas) ──────────────────────────────
+function drawGauge(pct){
+  const c=document.getElementById('cGauge'),ctx=c.getContext('2d');
+  const W=c.width,H=c.height,cx=W/2,cy=H-10,r=Math.min(W*.42,H*.82);
+  ctx.clearRect(0,0,W,H);
+  // track bg
+  ctx.beginPath();ctx.arc(cx,cy,r,Math.PI,2*Math.PI);
+  ctx.lineWidth=16;ctx.strokeStyle='rgba(255,255,255,.08)';ctx.stroke();
+  // value arc
+  const maxP=pct>100?Math.ceil(pct/50)*50:100;
+  const valA=Math.PI+(Math.min(pct,maxP)/maxP)*Math.PI;
+  if(pct>0){
+    const grad=ctx.createLinearGradient(cx-r,cy,cx+r,cy);
+    grad.addColorStop(0,'#c0392b');grad.addColorStop(1,'#ff6b6b');
+    ctx.beginPath();ctx.arc(cx,cy,r,Math.PI,valA);
+    ctx.lineWidth=16;ctx.strokeStyle=grad;ctx.lineCap='butt';ctx.stroke();
+  }
+  // meta dash @ 90%
+  const mA=Math.PI+(90/maxP)*Math.PI;
+  ctx.beginPath();
+  ctx.moveTo(cx+(r-20)*Math.cos(mA),cy+(r-20)*Math.sin(mA));
+  ctx.lineTo(cx+(r+2)*Math.cos(mA),cy+(r+2)*Math.sin(mA));
+  ctx.setLineDash([3,2]);ctx.lineWidth=1.5;ctx.strokeStyle='rgba(255,255,255,.4)';ctx.stroke();ctx.setLineDash([]);
+  // needle
+  const nA=Math.PI+(Math.min(pct,maxP)/maxP)*Math.PI;
+  ctx.beginPath();ctx.moveTo(cx,cy);
+  ctx.lineTo(cx+(r-6)*Math.cos(nA),cy+(r-6)*Math.sin(nA));
+  ctx.lineWidth=2;ctx.strokeStyle='#fff';ctx.lineCap='round';ctx.stroke();
+  ctx.beginPath();ctx.arc(cx,cy,4,0,Math.PI*2);ctx.fillStyle='#fff';ctx.fill();
+  // end labels
+  ctx.fillStyle='rgba(255,255,255,.35)';ctx.font='9px Segoe UI';ctx.textAlign='center';
+  ctx.fillText('0%',cx-r,cy+12);ctx.fillText(maxP+'%',cx+r,cy+12);
+}
+
+// ─── Render machine chart (BUG FIX: height set BEFORE chart creation) ──
+function renderMachineChart(data,selMach){
+  const ROW_H=28,MIN_H=200;
+  const h=Math.max(MIN_H,data.length*ROW_H);
+  const inner=document.getElementById('machineInner');
+  inner.style.height=h+'px'; // set BEFORE chart init — avoids resize loop
+  const colors=data.map(d=>d.pct>=90?'rgba(34,197,94,.85)':
+    d.pct>=60?'rgba(230,57,70,.85)':'rgba(230,57,70,.45)');
+  if(d=>d.name===selMach,selMach!=='Todos') // highlight selected
+    data.forEach((d,i)=>{if(d.name===selMach)colors[i]='rgba(255,107,107,1)';});
+  const ctx=document.getElementById('cMachine').getContext('2d');
+  if(chartM)chartM.destroy();
+  chartM=new Chart(ctx,{type:'bar',
+    data:{labels:data.map(d=>d.name),
+      datasets:[{data:data.map(d=>d.pct),backgroundColor:colors,
+        borderRadius:3,borderSkipped:false}]},
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,animation:false,
+      plugins:{legend:{display:false},
+        tooltip:{callbacks:{label:c=>c.raw.toFixed(1)+'%'},
+          backgroundColor:'rgba(14,19,48,.95)',titleColor:'#e8eaf6',bodyColor:'#8892b0',
+          borderColor:'rgba(255,255,255,.1)',borderWidth:1}},
+      scales:{
+        x:{min:0,max:100,ticks:{callback:v=>v+'%',color:'#6b7a9f',font:{size:10}},
+           grid:{color:'rgba(255,255,255,.04)'},border:{display:false}},
+        y:{ticks:{color:'#a0aec0',font:{size:11}},grid:{display:false},border:{display:false}}
+      }}});
+}
+
+// ─── Render monthly chart ─────────────────────────
+function renderMonthlyChart(md){
+  const ctx=document.getElementById('cMonthly').getContext('2d');
+  if(chartMo)chartMo.destroy();
+  chartMo=new Chart(ctx,{type:'bar',
+    data:{labels:md.labels,datasets:[
+      {type:'bar',label:'Volume',data:md.vols,
+        backgroundColor:'rgba(230,57,70,.7)',borderRadius:4,yAxisID:'y'},
+      {type:'line',label:'% Atend.',data:md.pcts,
+        borderColor:'#00d4ff',backgroundColor:'rgba(0,212,255,.1)',
+        pointBackgroundColor:'#00d4ff',pointBorderColor:'#07091a',
+        pointRadius:5,pointBorderWidth:2,tension:.35,fill:true,yAxisID:'y2'}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,animation:false,
+      plugins:{legend:{display:false},
+        tooltip:{mode:'index',intersect:false,
+          backgroundColor:'rgba(14,19,48,.95)',titleColor:'#e8eaf6',bodyColor:'#8892b0',
+          borderColor:'rgba(255,255,255,.1)',borderWidth:1}},
+      scales:{
+        y:{position:'left',ticks:{color:'#6b7a9f',font:{size:10}},
+           grid:{color:'rgba(255,255,255,.04)'},border:{display:false}},
+        y2:{position:'right',ticks:{callback:v=>v+'%',color:'#00d4ff',font:{size:10}},
+            grid:{display:false},border:{display:false},min:0}
+      }}});
+}
+
+// ─── Main render ─────────────────────────────────
+function render(){
+  const{main,dateFiltered}=getFiltered();
+  const k=kpis(main);
+  document.getElementById('kOnTime').textContent=k.onTime;
+  document.getElementById('kExtra').textContent=k.pctExtra.toFixed(2)+'%';
+  document.getElementById('kTotal').textContent=k.qty;
+  document.getElementById('kProg').textContent=k.prog;
+  document.getElementById('notProg').textContent=k.extra;
+  // Finalização no dia = qty de EMBALAGEM FINAL no período filtrado (sem filtro de máquina)
+  const finQt=dateFiltered.filter(r=>r.machine==='EMBALAGEM FINAL').reduce((s,r)=>s+r.qty,0);
+  document.getElementById('finEmbalagem').textContent=finQt;
+  document.getElementById('gaugeVal').textContent=k.pctAtt.toFixed(2)+'%';
+  drawGauge(k.pctAtt);
+  const selMach=document.getElementById('fMachine').value;
+  renderMachineChart(machData(dateFiltered),selMach);
+  const machAll=selMach==='Todos'?allData:allData.filter(d=>d.machine===selMach);
+  renderMonthlyChart(monthData(machAll));
+  const period=document.getElementById('fPeriod').value;
+  const dv=document.getElementById('fDate').value;
+  const ds=period==='latest'?'Último dia':period==='specific'&&dv?dv:'Todos os dias';
+  document.getElementById('footerTxt').textContent=
+    `Label Code · PCP — Atendimento à Programação · ${ds} · Meta 90% · ${new Date().toLocaleString('pt-BR')}`;
+}
+
+// ─── Bootstrap ───────────────────────────────────
+const EMBEDDED_CSV=`Dia,Máquina,Qtd_Total_Finalizada,No_Prazo,Atrasado,Extra,Total Programado,% Atendimento Programação
+2026-02-28,BATIDA,1,0,0,1,0,0.0
+2026-02-28,BROTECH CDF330,1,0,1,0,1,0.0
+2026-02-28,DOBRADEIRA,2,1,1,0,2,50.0
+2026-02-28,REBOBINADEIRA ECO,1,1,0,0,1,100.0
+2026-02-28,REVISORA VRR STD 350,3,3,0,0,3,100.0
+2026-02-28,REVISÃO MANUAL,3,0,3,0,3,0.0
+2026-03-01,BATIDA,1,0,1,0,1,0.0
+2026-03-01,CORTE E VINCO,1,0,0,1,0,0.0
+2026-03-01,DOBRADEIRA,2,0,1,1,1,0.0
+2026-03-01,EMBALAGEM FINAL,3,0,0,3,0,0.0
+2026-03-01,GUILHOTINA,1,0,0,1,0,0.0
+2026-03-01,REBOBINADEIRA ECO,1,0,0,1,0,0.0
+2026-03-01,REVISÃO MANUAL,1,0,0,1,0,0.0
+2026-03-02,BATIDA,11,11,0,0,11,100.0
+2026-03-02,BROTECH CDF330,6,5,0,1,5,100.0
+2026-03-02,DOBRADEIRA,3,0,3,0,3,0.0
+2026-03-02,DURST,12,11,1,0,12,91.67
+2026-03-02,EMBALAGEM FINAL,20,0,0,20,0,0.0
+2026-03-02,ETIRAMA FIT,1,0,1,0,1,0.0
+2026-03-02,ETIRAMA ONE,4,0,4,0,4,0.0
+2026-03-02,ETIRAMA WINE,1,0,1,0,1,0.0
+2026-03-02,FECHAMENTO DE KIT,1,0,0,1,0,0.0
+2026-03-02,GUILHOTINA,3,0,1,2,1,0.0
+2026-03-02,MESA DE REVISÃO 1,1,0,1,0,1,0.0
+2026-03-02,OFFSET - SPEEDMASTER,3,3,0,0,3,100.0
+2026-03-02,PLOTTER VD330,4,4,0,0,4,100.0
+2026-03-02,REBOBINADEIRA ECO,8,4,0,4,4,100.0
+2026-03-02,REVISORA VRR STD 350,8,5,3,0,8,62.5
+2026-03-02,REVISÃO GERAL,1,0,0,1,0,0.0
+2026-03-02,REVISÃO MANUAL,3,0,3,0,3,0.0
+2026-03-02,TERCEIROS,1,0,1,0,1,0.0
+2026-03-02,TROQUELADORA,3,1,0,2,1,100.0
+2026-03-03,BATIDA,3,3,0,0,3,100.0
+2026-03-03,BROTECH CDF330,15,11,3,1,14,78.57
+2026-03-03,DOBRADEIRA,1,1,0,0,1,100.0
+2026-03-03,DURST,21,17,4,0,21,80.95
+2026-03-03,EMBALAGEM FINAL,28,1,1,26,2,50.0
+2026-03-03,ETIRAMA ONE,4,2,2,0,4,50.0
+2026-03-03,ETIRAMA WINE,2,2,0,0,2,100.0
+2026-03-03,GUILHOTINA,5,0,2,3,2,0.0
+2026-03-03,MESA DE REVISÃO 1,2,0,0,2,0,0.0
+2026-03-03,OFFSET - SPEEDMASTER,2,2,0,0,2,100.0
+2026-03-03,PLOTTER VD330,2,1,1,0,2,50.0
+2026-03-03,REBOBINADEIRA ECO,16,2,12,2,14,14.29
+2026-03-03,REVISORA VRR STD 350,11,7,4,0,11,63.64
+2026-03-03,REVISÃO GERAL,1,0,1,0,1,0.0
+2026-03-03,REVISÃO MANUAL,1,0,1,0,1,0.0
+2026-03-03,TROQUELADORA,10,4,2,4,6,66.67
+2026-03-04,BATIDA,5,4,1,0,5,80.0
+2026-03-04,BROTECH CDF330,10,9,0,1,9,100.0
+2026-03-04,DURST,29,29,0,0,29,100.0
+2026-03-04,EMBALAGEM FINAL,26,13,7,6,20,65.0
+2026-03-04,ETIRAMA ONE,2,2,0,0,2,100.0
+2026-03-04,ETIRAMA WINE,2,2,0,0,2,100.0
+2026-03-04,GUILHOTINA,6,0,2,4,2,0.0
+2026-03-04,OFFSET - SPEEDMASTER,5,4,1,0,5,80.0
+2026-03-04,PLOTTER VD330,3,3,0,0,3,100.0
+2026-03-04,REBOBINADEIRA ECO,8,6,1,1,7,85.71
+2026-03-04,REVISORA VRR STD 350,5,5,0,0,5,100.0
+2026-03-04,TROQUELADORA,1,1,0,0,1,100.0
+2026-03-05,BATIDA,4,3,1,0,4,75.0
+2026-03-05,BROTECH CDF330,4,1,0,3,1,100.0
+2026-03-05,DURST,3,2,0,1,2,100.0
+2026-03-05,EMBALAGEM FINAL,13,5,6,2,11,45.45
+2026-03-05,ETIRAMA ONE,5,3,1,1,4,75.0
+2026-03-05,ETIRAMA WINE,1,0,0,1,0,0.0
+2026-03-05,GUILHOTINA,7,2,2,3,4,50.0
+2026-03-05,MESA DE REVISÃO 1,1,0,0,1,0,0.0
+2026-03-05,OFFSET - SPEEDMASTER,2,2,0,0,2,100.0
+2026-03-05,PLOTTER VD330,4,0,4,0,4,0.0
+2026-03-05,REBOBINADEIRA ECO,9,6,2,1,8,75.0
+2026-03-05,REVISORA VRR STD 350,9,5,4,0,9,55.56
+2026-03-06,BATIDA,5,5,0,0,5,100.0
+2026-03-06,BROTECH CDF330,31,29,2,0,31,93.55
+2026-03-06,CORTE E VINCO,6,0,6,0,6,0.0
+2026-03-06,DURST,3,3,0,0,3,100.0
+2026-03-06,EMBALAGEM FINAL,17,4,8,5,12,33.33
+2026-03-06,ETIRAMA ONE,3,0,1,2,1,0.0
+2026-03-06,GRAMPEADEIRA,1,0,1,0,1,0.0
+2026-03-06,GUILHOTINA,4,0,3,1,3,0.0
+2026-03-06,MESA DE REVISÃO 1,2,0,0,2,0,0.0
+2026-03-06,OFFSET - SPEEDMASTER,2,2,0,0,2,100.0
+2026-03-06,PLOTTER VD330,4,2,2,0,4,50.0
+2026-03-06,REBOBINADEIRA ECO,6,0,0,6,0,0.0
+2026-03-06,REVISORA VRR STD 350,12,0,0,12,0,0.0
+2026-03-06,REVISÃO GERAL,1,0,0,1,0,0.0
+2026-03-06,REVISÃO MANUAL,3,0,3,0,3,0.0
+2026-03-07,BROTECH CDF330,1,0,0,1,0,0.0
+2026-03-07,DURST,1,0,0,1,0,0.0
+2026-03-07,EMBALAGEM FINAL,1,0,0,1,0,0.0
+2026-03-07,ETIRAMA ONE,2,0,0,2,0,0.0
+2026-03-07,GUILHOTINA,1,0,0,1,0,0.0
+2026-03-07,OFFSET - SPEEDMASTER,1,0,0,1,0,0.0
+2026-03-07,REBOBINADEIRA ECO,1,0,0,1,0,0.0
+2026-03-07,REVISÃO GERAL,4,0,0,4,0,0.0
+2026-03-08,GUILHOTINA,2,0,1,1,1,0.0
+2026-03-09,BATIDA,1,1,0,0,1,100.0
+2026-03-09,BROTECH CDF330,5,5,0,0,5,100.0
+2026-03-09,DURST,5,5,0,0,5,100.0
+2026-03-09,EMBALAGEM FINAL,34,0,17,17,17,0.0
+2026-03-09,ETIRAMA ONE,1,1,0,0,1,100.0
+2026-03-09,GUILHOTINA,1,0,0,1,0,0.0
+2026-03-09,MESA DE REVISÃO 1,3,0,2,1,2,0.0
+2026-03-09,PLOTTER VD330,2,2,0,0,2,100.0
+2026-03-09,REBOBINADEIRA ECO,5,1,0,4,1,100.0
+2026-03-09,REVISORA VRR STD 350,12,0,12,0,12,0.0
+2026-03-09,REVISÃO MANUAL,1,0,1,0,1,0.0
+2026-03-09,TERCEIROS,1,0,1,0,1,0.0
+2026-03-09,ZEBRA - TÉRMICA,1,0,0,1,0,0.0
+2026-03-10,BATIDA,4,2,2,0,4,50.0
+2026-03-10,BROTECH CDF330,8,5,3,0,8,62.5
+2026-03-10,CORTE E VINCO,1,0,1,0,1,0.0
+2026-03-10,DOBRADEIRA,2,1,1,0,2,50.0
+2026-03-10,DURST,14,0,14,0,14,0.0
+2026-03-10,EMBALAGEM FINAL,15,2,10,3,12,16.67
+2026-03-10,ETIRAMA FIT,1,0,1,0,1,0.0
+2026-03-10,ETIRAMA ONE,2,2,0,0,2,100.0
+2026-03-10,GUILHOTINA,2,0,0,2,0,0.0
+2026-03-10,MESA DE REVISÃO 1,1,0,1,0,1,0.0
+2026-03-10,OFFSET - SPEEDMASTER,2,2,0,0,2,100.0
+2026-03-10,PLOTTER VD330,4,0,4,0,4,0.0
+2026-03-10,REBOBINADEIRA ECO,8,2,5,1,7,28.57
+2026-03-10,REVISORA VRR STD 350,4,2,2,0,4,50.0
+2026-03-10,REVISÃO MANUAL,1,0,1,0,1,0.0
+2026-03-10,TROQUELADORA,4,2,0,2,2,100.0
+2026-03-11,BATIDA,4,2,0,2,2,100.0
+2026-03-11,BROTECH CDF330,7,7,0,0,7,100.0
+2026-03-11,DOBRADEIRA,3,0,1,2,1,0.0
+2026-03-11,DURST,8,6,0,2,6,100.0
+2026-03-11,EMBALAGEM FINAL,12,2,9,1,11,18.18
+2026-03-11,FECHAMENTO DE KIT,2,0,0,2,0,0.0
+2026-03-11,GUILHOTINA,4,0,3,1,3,0.0
+2026-03-11,MESA DE REVISÃO 1,1,0,0,1,0,0.0
+2026-03-11,PLOTTER VD330,16,15,0,1,15,100.0
+2026-03-11,REBOBINADEIRA ECO,6,3,3,0,6,50.0
+2026-03-11,REVISORA VRR STD 350,10,7,3,0,10,70.0
+2026-03-11,REVISÃO GERAL,1,0,0,1,0,0.0
+2026-03-11,REVISÃO MANUAL,3,0,2,1,2,0.0
+2026-03-11,TROQUELADORA,2,2,0,0,2,100.0
+2026-03-12,BATIDA,4,4,0,0,4,100.0
+2026-03-12,BROTECH CDF330,11,5,1,5,6,83.33
+2026-03-12,DURST,18,9,7,2,16,56.25
+2026-03-12,EMBALAGEM FINAL,42,11,19,12,30,36.67
+2026-03-12,ETIRAMA ONE,3,3,0,0,3,100.0
+2026-03-12,GUILHOTINA,2,0,0,2,0,0.0
+2026-03-12,OFFSET - SPEEDMASTER,2,1,1,0,2,50.0
+2026-03-12,PLOTTER VD330,9,7,0,2,7,100.0
+2026-03-12,REBOBINADEIRA ECO,10,0,7,3,7,0.0
+2026-03-12,REVISORA VRR STD 350,13,4,3,6,7,57.14
+2026-03-12,REVISÃO GERAL,10,5,0,5,5,100.0
+2026-03-12,REVISÃO MANUAL,2,0,2,0,2,0.0
+2026-03-12,TROQUELADORA,2,1,1,0,2,50.0
+2026-03-13,BATIDA,6,6,0,0,6,100.0
+2026-03-13,BROTECH CDF330,4,4,0,0,4,100.0
+2026-03-13,DOBRADEIRA,1,0,0,1,0,0.0
+2026-03-13,DURST,20,20,0,0,20,100.0
+2026-03-13,EMBALAGEM FINAL,20,6,9,5,15,40.0
+2026-03-13,ETIRAMA ONE,3,3,0,0,3,100.0
+2026-03-13,GUILHOTINA,6,1,1,4,2,50.0
+2026-03-13,OFFSET - SPEEDMASTER,2,2,0,0,2,100.0
+2026-03-13,PLOTTER VD330,2,1,1,0,2,50.0
+2026-03-13,REBOBINADEIRA ECO,6,5,1,0,6,83.33
+2026-03-13,REVISORA VRR STD 350,6,2,2,2,4,50.0
+2026-03-13,REVISÃO GERAL,3,2,1,0,3,66.67
+2026-03-13,REVISÃO MANUAL,1,0,1,0,1,0.0
+2026-03-13,TROQUELADORA,1,1,0,0,1,100.0
+2026-03-14,OFFSET - SPEEDMASTER,1,1,0,0,1,100.0
+2026-03-14,REBOBINADEIRA ECO,2,0,0,2,0,0.0
+2026-03-15,DOBRADEIRA,1,0,0,1,0,0.0
+2026-03-16,BATIDA,4,4,0,0,4,100.0
+2026-03-16,BROTECH CDF330,4,4,0,0,4,100.0
+2026-03-16,DOBRADEIRA,1,1,0,0,1,100.0
+2026-03-16,DURST,13,13,0,0,13,100.0
+2026-03-16,EMBALAGEM FINAL,12,0,5,7,5,0.0
+2026-03-16,ETIRAMA ONE,3,3,0,0,3,100.0
+2026-03-16,GUILHOTINA,4,0,3,1,3,0.0
+2026-03-16,MESA DE REVISÃO 1,1,0,0,1,0,0.0
+2026-03-16,OFFSET - SPEEDMASTER,1,0,1,0,1,0.0
+2026-03-16,PLOTTER VD330,1,1,0,0,1,100.0
+2026-03-16,REBOBINADEIRA ECO,8,2,0,6,2,100.0
+2026-03-16,REVISORA VRR STD 350,4,1,0,3,1,100.0
+2026-03-16,REVISÃO MANUAL,2,0,2,0,2,0.0
+2026-03-16,TROQUELADORA,4,4,0,0,4,100.0
+2026-03-17,BATIDA,4,4,0,0,4,100.0
+2026-03-17,BROTECH CDF330,27,25,0,2,25,100.0
+2026-03-17,DOBRADEIRA,1,0,1,0,1,0.0
+2026-03-17,DURST,12,10,0,2,10,100.0
+2026-03-17,EMBALAGEM FINAL,12,0,0,12,0,0.0
+2026-03-17,ETIRAMA FIT,2,2,0,0,2,100.0
+2026-03-17,ETIRAMA ONE,2,2,0,0,2,100.0
+2026-03-17,FECHAMENTO DE KIT,3,0,1,2,1,0.0
+2026-03-17,GUILHOTINA,3,0,1,2,1,0.0
+2026-03-17,MESA DE REVISÃO 1,2,0,1,1,1,0.0
+2026-03-17,OFFSET - SPEEDMASTER,2,1,1,0,2,50.0
+2026-03-17,REBOBINADEIRA ECO,15,12,0,3,12,100.0
+2026-03-17,REVISORA VRR STD 350,3,1,2,0,3,33.33
+2026-03-17,REVISÃO MANUAL,1,0,1,0,1,0.0
+2026-03-17,TERCEIROS,2,0,1,1,1,0.0
+2026-03-17,TROQUELADORA,3,2,1,0,3,66.67
+2026-03-18,BATIDA,5,5,0,0,5,100.0
+2026-03-18,BROTECH CDF330,17,17,0,0,17,100.0
+2026-03-18,DOBRADEIRA,1,0,1,0,1,0.0
+2026-03-18,DURST,12,5,5,2,10,50.0
+2026-03-18,EMBALAGEM FINAL,32,11,1,20,12,91.67
+2026-03-18,ETIRAMA FIT,2,2,0,0,2,100.0
+2026-03-18,ETIRAMA ONE,5,5,0,0,5,100.0
+2026-03-18,GUILHOTINA,7,3,2,2,5,60.0
+2026-03-18,MESA DE REVISÃO 1,1,0,0,1,0,0.0
+2026-03-18,OFFSET - SPEEDMASTER,3,3,0,0,3,100.0
+2026-03-18,PLOTTER VD330,2,0,0,2,0,0.0
+2026-03-18,REBOBINADEIRA ECO,9,4,0,5,4,100.0
+2026-03-18,REVISORA VRR STD 350,9,8,1,0,9,88.89
+2026-03-18,REVISÃO MANUAL,1,0,1,0,1,0.0
+2026-03-18,TROQUELADORA,14,14,0,0,14,100.0
+2026-03-18,ZEBRA - TÉRMICA,1,0,0,1,0,0.0
+2026-03-19,BATIDA,3,3,0,0,3,100.0
+2026-03-19,BROTECH CDF330,7,4,0,3,4,100.0
+2026-03-19,DOBRADEIRA,3,2,1,0,3,66.67
+2026-03-19,DURST,7,5,2,0,7,71.43
+2026-03-19,EMBALAGEM FINAL,26,4,20,2,24,16.67
+2026-03-19,ETIRAMA FIT,1,0,1,0,1,0.0
+2026-03-19,ETIRAMA ONE,2,0,2,0,2,0.0
+2026-03-19,GUILHOTINA,1,0,0,1,0,0.0
+2026-03-19,MESA DE REVISÃO 1,3,0,0,3,0,0.0
+2026-03-19,PLOTTER VD330,4,4,0,0,4,100.0
+2026-03-19,REBOBINADEIRA ECO,4,1,3,0,4,25.0
+2026-03-19,REVISORA VRR STD 350,8,2,6,0,8,25.0
+2026-03-19,REVISÃO GERAL,2,1,0,1,1,100.0
+2026-03-19,REVISÃO MANUAL,5,0,5,0,5,0.0
+2026-03-19,TERCEIROS,1,0,0,1,0,0.0
+2026-03-19,TROQUELADORA,3,0,3,0,3,0.0
+2026-03-20,BATIDA,6,6,0,0,6,100.0
+2026-03-20,BROTECH CDF330,6,6,0,0,6,100.0
+2026-03-20,DOBRADEIRA,1,1,0,0,1,100.0
+2026-03-20,DURST,10,6,4,0,10,60.0
+2026-03-20,EMBALAGEM FINAL,13,3,7,3,10,30.0
+2026-03-20,ETIRAMA FIT,5,2,1,2,3,66.67
+2026-03-20,ETIRAMA ONE,6,5,0,1,5,100.0
+2026-03-20,GUILHOTINA,1,1,0,0,1,100.0
+2026-03-20,PLOTTER VD330,7,5,1,1,6,83.33
+2026-03-20,REBOBINADEIRA ECO,8,6,1,1,7,85.71
+2026-03-20,REVISORA VRR STD 350,14,2,8,4,10,20.0
+2026-03-20,REVISÃO GERAL,1,1,0,0,1,100.0
+2026-03-20,TROQUELADORA,1,0,0,1,0,0.0
+2026-03-23,BATIDA,8,7,0,1,7,100.0
+2026-03-23,BROTECH CDF330,9,9,0,0,9,100.0
+2026-03-23,DOBRADEIRA,1,0,1,0,1,0.0
+2026-03-23,DURST,13,9,4,0,13,69.23
+2026-03-23,EMBALAGEM FINAL,19,9,4,6,13,69.23
+2026-03-23,ETIRAMA ONE,5,5,0,0,5,100.0
+2026-03-23,ETIRAMA WINE,2,0,0,2,0,0.0
+2026-03-23,GUILHOTINA,7,0,1,6,1,0.0
+2026-03-23,MESA DE REVISÃO 1,2,0,1,1,1,0.0
+2026-03-23,OFFSET - SPEEDMASTER,5,5,0,0,5,100.0
+2026-03-23,PLOTTER VD330,1,0,0,1,0,0.0
+2026-03-23,REBOBINADEIRA ECO,4,1,0,3,1,100.0
+2026-03-23,REVISORA VRR STD 350,14,4,6,4,10,40.0
+2026-03-23,REVISÃO GERAL,1,1,0,0,1,100.0
+2026-03-24,BATIDA,6,5,0,1,5,100.0
+2026-03-24,BROTECH CDF330,14,13,0,1,13,100.0
+2026-03-24,CORTE E VINCO,1,0,1,0,1,0.0
+2026-03-24,DURST,6,6,0,0,6,100.0
+2026-03-24,EMBALAGEM FINAL,19,6,3,10,9,66.67
+2026-03-24,ETIRAMA FIT,1,0,0,1,0,0.0
+2026-03-24,ETIRAMA ONE,6,6,0,0,6,100.0
+2026-03-24,ETIRAMA WINE,1,1,0,0,1,100.0
+2026-03-24,FECHAMENTO DE KIT,2,0,0,2,0,0.0
+2026-03-24,GUILHOTINA,5,0,3,2,3,0.0
+2026-03-24,MESA DE REVISÃO 1,2,0,1,1,1,0.0
+2026-03-24,OFFSET - SPEEDMASTER,2,2,0,0,2,100.0
+2026-03-24,PLOTTER VD330,12,6,3,3,9,66.67
+2026-03-24,REBOBINADEIRA ECO,13,6,0,7,6,100.0
+2026-03-24,REVISORA VRR STD 350,15,15,0,0,15,100.0
+2026-03-24,TERCEIROS,1,0,0,1,0,0.0
+2026-03-24,TROQUELADORA,4,3,0,1,3,100.0
+2026-03-25,BATIDA,3,2,0,1,2,100.0
+2026-03-25,BROTECH CDF330,5,1,3,1,4,25.0
+2026-03-25,DOBRADEIRA,1,0,0,1,0,0.0
+2026-03-25,DURST,2,1,0,1,1,100.0
+2026-03-25,EMBALAGEM FINAL,38,15,12,11,27,55.56
+2026-03-25,ETIRAMA ONE,1,1,0,0,1,100.0
+2026-03-25,ETIRAMA WINE,1,1,0,0,1,100.0
+2026-03-25,GUILHOTINA,7,1,3,3,4,25.0
+2026-03-25,OFFSET - SPEEDMASTER,3,2,0,1,2,100.0
+2026-03-25,PLOTTER VD330,2,1,0,1,1,100.0
+2026-03-25,REBOBINADEIRA ECO,9,4,1,4,5,80.0
+2026-03-25,REVISORA VRR STD 350,29,17,2,10,19,89.47
+2026-03-25,REVISÃO GERAL,2,0,1,1,1,0.0
+2026-03-25,REVISÃO MANUAL,3,0,2,1,2,0.0
+2026-03-25,TROQUELADORA,3,1,0,2,1,100.0
+2026-03-26,BATIDA,3,1,1,1,2,50.0
+2026-03-26,BROTECH CDF330,7,1,0,6,1,100.0
+2026-03-26,DOBRADEIRA,4,4,0,0,4,100.0
+2026-03-26,DURST,11,8,2,1,10,80.0
+2026-03-26,EMBALAGEM FINAL,12,4,3,5,7,57.14
+2026-03-26,ETIRAMA FIT,1,0,0,1,0,0.0
+2026-03-26,ETIRAMA ONE,2,0,2,0,2,0.0
+2026-03-26,GUILHOTINA,7,3,2,2,5,60.0
+2026-03-26,MESA DE REVISÃO 1,2,2,0,0,2,100.0
+2026-03-26,OFFSET - SPEEDMASTER,1,1,0,0,1,100.0
+2026-03-26,REBOBINADEIRA ECO,5,3,0,2,3,100.0
+2026-03-26,REVISORA VRR STD 350,8,2,4,2,6,33.33
+2026-03-26,REVISÃO GERAL,1,1,0,0,1,100.0
+2026-03-26,REVISÃO MANUAL,2,0,2,0,2,0.0
+2026-03-26,TROQUELADORA,6,5,0,1,5,100.0
+2026-03-27,BATIDA,1,1,0,0,1,100.0
+2026-03-27,BROTECH CDF330,3,1,0,2,1,100.0
+2026-03-27,DOBRADEIRA,1,1,0,0,1,100.0
+2026-03-27,DURST,5,5,0,0,5,100.0
+2026-03-27,EMBALAGEM FINAL,10,7,2,1,9,77.78
+2026-03-27,ETIRAMA FIT,3,3,0,0,3,100.0
+2026-03-27,ETIRAMA ONE,6,6,0,0,6,100.0
+2026-03-27,GUILHOTINA,2,0,1,1,1,0.0
+2026-03-27,MESA DE REVISÃO 1,2,0,0,2,0,0.0
+2026-03-27,OFFSET - SPEEDMASTER,2,1,0,1,1,100.0
+2026-03-27,PLOTTER VD330,6,6,0,0,6,100.0
+2026-03-27,REBOBINADEIRA ECO,3,3,0,0,3,100.0
+2026-03-27,REVISORA VRR STD 350,3,1,2,0,3,33.33
+2026-03-27,REVISÃO GERAL,2,1,0,1,1,100.0
+2026-03-27,TROQUELADORA,1,1,0,0,1,100.0
+2026-03-28,BROTECH CDF330,4,2,0,2,2,100.0
+2026-03-28,DOBRADEIRA,2,2,0,0,2,100.0
+2026-03-28,DURST,16,16,0,0,16,100.0
+2026-03-28,PLOTTER VD330,7,7,0,0,7,100.0
+2026-03-28,REVISÃO MANUAL,2,0,2,0,2,0.0
+2026-03-30,BATIDA,5,1,2,2,3,33.33
+2026-03-30,BROTECH CDF330,14,5,0,9,5,100.0
+2026-03-30,DOBRADEIRA,1,1,0,0,1,100.0
+2026-03-30,DURST,29,16,12,1,28,57.14
+2026-03-30,EMBALAGEM FINAL,10,0,9,1,9,0.0
+2026-03-30,ETIRAMA FIT,3,2,1,0,3,66.67
+2026-03-30,ETIRAMA ONE,1,1,0,0,1,100.0
+2026-03-30,GUILHOTINA,3,0,2,1,2,0.0
+2026-03-30,MESA DE REVISÃO 1,2,0,0,2,0,0.0
+2026-03-30,OFFSET - SPEEDMASTER,1,1,0,0,1,100.0
+2026-03-30,PLOTTER VD330,6,5,1,0,6,83.33
+2026-03-30,REBOBINADEIRA ECO,4,2,1,1,3,66.67
+2026-03-30,REVISORA VRR STD 350,16,12,0,4,12,100.0
+2026-03-30,REVISÃO GERAL,4,2,0,2,2,100.0
+2026-03-30,REVISÃO MANUAL,1,0,1,0,1,0.0
+2026-03-31,BATIDA,8,5,1,2,6,83.33
+2026-03-31,BROTECH CDF330,17,16,1,0,17,94.12
+2026-03-31,DOBRADEIRA,1,1,0,0,1,100.0
+2026-03-31,DURST,8,7,0,1,7,100.0
+2026-03-31,EMBALAGEM FINAL,13,3,8,2,11,27.27
+2026-03-31,ETIRAMA FIT,3,3,0,0,3,100.0
+2026-03-31,ETIRAMA ONE,4,3,0,1,3,100.0
+2026-03-31,ETIRAMA WINE,1,0,1,0,1,0.0
+2026-03-31,GUILHOTINA,6,0,1,5,1,0.0
+2026-03-31,OFFSET - SPEEDMASTER,3,3,0,0,3,100.0
+2026-03-31,REBOBINADEIRA ECO,5,3,0,2,3,100.0
+2026-03-31,REVISORA VRR STD 350,9,5,2,2,7,71.43
+2026-03-31,REVISÃO GERAL,2,0,0,2,0,0.0
+2026-03-31,REVISÃO MANUAL,1,0,1,0,1,0.0
+2026-03-31,TROQUELADORA,1,0,0,1,0,0.0
+2026-04-01,BATIDA,7,5,1,1,6,83.33
+2026-04-01,BROTECH CDF330,17,13,2,2,15,86.67
+2026-04-01,DOBRADEIRA,5,4,0,1,4,100.0
+2026-04-01,DURST,17,17,0,0,17,100.0
+2026-04-01,EMBALAGEM FINAL,25,14,10,1,24,58.33
+2026-04-01,ETIRAMA FIT,1,1,0,0,1,100.0
+2026-04-01,ETIRAMA ONE,5,1,4,0,5,20.0
+2026-04-01,ETIRAMA WINE,3,3,0,0,3,100.0
+2026-04-01,GUILHOTINA,4,0,1,3,1,0.0
+2026-04-01,MESA DE REVISÃO 1,1,0,0,1,0,0.0
+2026-04-01,OFFSET - SPEEDMASTER,3,3,0,0,3,100.0
+2026-04-01,PLOTTER VD330,1,0,0,1,0,0.0
+2026-04-01,REBOBINADEIRA ECO,12,7,4,1,11,63.64
+2026-04-01,REVISORA VRR STD 350,5,5,0,0,5,100.0
+2026-04-01,REVISÃO MANUAL,3,0,2,1,2,0.0
+2026-04-01,TROQUELADORA,13,13,0,0,13,100.0
+2026-04-02,BATIDA,6,6,0,0,6,100.0
+2026-04-02,BROTECH CDF330,5,3,0,2,3,100.0
+2026-04-02,DURST,18,10,5,3,15,66.67
+2026-04-02,EMBALAGEM FINAL,26,6,18,2,24,25.0
+2026-04-02,ETIRAMA FIT,2,2,0,0,2,100.0
+2026-04-02,ETIRAMA ONE,3,3,0,0,3,100.0
+2026-04-02,ETIRAMA WINE,3,1,2,0,3,33.33
+2026-04-02,GUILHOTINA,5,1,3,1,4,25.0
+2026-04-02,OFFSET - SPEEDMASTER,1,1,0,0,1,100.0
+2026-04-02,PLOTTER VD330,2,0,0,2,0,0.0
+2026-04-02,REBOBINADEIRA ECO,3,3,0,0,3,100.0
+2026-04-02,REVISORA VRR STD 350,13,4,7,2,11,36.36
+2026-04-06,BATIDA,10,4,0,6,4,100.0
+2026-04-06,BROTECH CDF330,10,7,1,2,8,87.5
+2026-04-06,DOBRADEIRA,1,1,0,0,1,100.0
+2026-04-06,DURST,25,20,4,1,24,83.33
+2026-04-06,EMBALAGEM FINAL,19,3,10,6,13,23.08
+2026-04-06,ETIRAMA FIT,1,1,0,0,1,100.0
+2026-04-06,ETIRAMA ONE,8,8,0,0,8,100.0
+2026-04-06,ETIRAMA WINE,2,2,0,0,2,100.0
+2026-04-06,GUILHOTINA,5,0,2,3,2,0.0
+2026-04-06,OFFSET - SPEEDMASTER,3,3,0,0,3,100.0
+2026-04-06,PLOTTER VD330,5,3,0,2,3,100.0
+2026-04-06,REBOBINADEIRA ECO,1,0,0,1,0,0.0
+2026-04-06,REVISORA VRR STD 350,9,7,0,2,7,100.0
+2026-04-06,REVISÃO GERAL,3,1,0,2,1,100.0
+2026-04-06,REVISÃO MANUAL,1,0,1,0,1,0.0
+2026-04-06,TROQUELADORA,5,5,0,0,5,100.0
+2026-04-07,BATIDA,1,0,0,1,0,0.0
+2026-04-07,BROTECH CDF330,19,18,1,0,19,94.74
+2026-04-07,DOBRADEIRA,2,2,0,0,2,100.0
+2026-04-07,DURST,20,19,0,1,19,100.0
+2026-04-07,EMBALAGEM FINAL,18,3,13,2,16,18.75
+2026-04-07,ETIRAMA FIT,3,3,0,0,3,100.0
+2026-04-07,ETIRAMA ONE,3,3,0,0,3,100.0
+2026-04-07,GUILHOTINA,5,2,1,2,3,66.67
+2026-04-07,OFFSET - SPEEDMASTER,2,2,0,0,2,100.0
+2026-04-07,PLOTTER VD330,2,0,0,2,0,0.0
+2026-04-07,REBOBINADEIRA ECO,1,0,0,1,0,0.0
+2026-04-07,REVISORA VRR STD 350,13,0,4,9,4,0.0
+2026-04-07,REVISÃO GERAL,3,0,2,1,2,0.0
+2026-04-07,REVISÃO MANUAL,3,1,2,0,3,33.33
+2026-04-07,TROQUELADORA,9,7,2,0,9,77.78
+2026-04-08,BATIDA,8,6,0,2,6,100.0
+2026-04-08,DOBRADEIRA,1,0,1,0,1,0.0
+2026-04-08,EMBALAGEM FINAL,33,17,9,7,26,65.38
+2026-04-08,ETIRAMA FIT,1,1,0,0,1,100.0
+2026-04-08,ETIRAMA ONE,4,3,1,0,4,75.0
+2026-04-08,ETIRAMA WINE,2,1,1,0,2,50.0
+2026-04-08,FECHAMENTO DE KIT,1,0,0,1,0,0.0
+2026-04-08,GUILHOTINA,4,0,2,2,2,0.0
+2026-04-08,MESA DE REVISÃO 1,3,0,2,1,2,0.0
+2026-04-08,OFFSET - SPEEDMASTER,1,0,0,1,0,0.0
+2026-04-08,PLOTTER VD330,22,22,0,0,22,100.0
+2026-04-08,REBOBINADEIRA ECO,19,17,0,2,17,100.0
+2026-04-08,REVISORA VRR STD 350,21,14,7,0,21,66.67
+2026-04-08,TROQUELADORA,1,1,0,0,1,100.0
+2026-04-09,BATIDA,5,5,0,0,5,100.0
+2026-04-09,BROTECH CDF330,1,1,0,0,1,100.0
+2026-04-09,DOBRADEIRA,1,0,1,0,1,0.0
+2026-04-09,DURST,21,8,11,2,19,42.11
+2026-04-09,EMBALAGEM FINAL,26,6,13,7,19,31.58
+2026-04-09,ETIRAMA ONE,3,3,0,0,3,100.0
+2026-04-09,FECHAMENTO DE KIT,1,0,0,1,0,0.0
+2026-04-09,GUILHOTINA,4,0,3,1,3,0.0
+2026-04-09,MESA DE REVISÃO 1,3,0,1,2,1,0.0
+2026-04-09,OFFSET - SPEEDMASTER,2,2,0,0,2,100.0
+2026-04-09,PLOTTER VD330,9,8,1,0,9,88.89
+2026-04-09,REBOBINADEIRA ECO,5,0,0,5,0,0.0
+2026-04-09,REVISORA VRR STD 350,3,0,2,1,2,0.0
+2026-04-09,REVISÃO MANUAL,2,0,2,0,2,0.0
+2026-04-09,TROQUELADORA,3,2,0,1,2,100.0
+2026-04-10,BATIDA,3,1,0,2,1,100.0
+2026-04-10,BROTECH CDF330,11,2,0,9,2,100.0
+2026-04-10,CORTE E VINCO,1,0,1,0,1,0.0
+2026-04-10,DOBRADEIRA,1,1,0,0,1,100.0
+2026-04-10,DURST,45,12,33,0,45,26.67
+2026-04-10,EMBALAGEM FINAL,24,1,16,7,17,5.88
+2026-04-10,ETIRAMA FIT,2,2,0,0,2,100.0
+2026-04-10,ETIRAMA ONE,1,1,0,0,1,100.0
+2026-04-10,ETIRAMA WINE,2,0,2,0,2,0.0
+2026-04-10,GUILHOTINA,2,0,1,1,1,0.0
+2026-04-10,MESA DE REVISÃO 1,2,0,0,2,0,0.0
+2026-04-10,OFFSET - SPEEDMASTER,1,1,0,0,1,100.0
+2026-04-10,PLOTTER VD330,2,1,0,1,1,100.0
+2026-04-10,REBOBINADEIRA ECO,4,2,1,1,3,66.67
+2026-04-10,REVISÃO MANUAL,2,0,2,0,2,0.0
+2026-04-10,TROQUELADORA,7,5,0,2,5,100.0
+2026-04-11,BROTECH CDF330,6,6,0,0,6,100.0
+2026-04-13,BATIDA,5,4,0,1,4,100.0
+2026-04-13,BROTECH CDF330,30,28,1,1,29,96.55
+2026-04-13,DOBRADEIRA,1,1,0,0,1,100.0
+2026-04-13,DURST,11,10,0,1,10,100.0
+2026-04-13,EMBALAGEM FINAL,20,3,11,6,14,21.43
+2026-04-13,ETIRAMA FIT,4,3,0,1,3,100.0
+2026-04-13,ETIRAMA ONE,2,2,0,0,2,100.0
+2026-04-13,ETIRAMA WINE,1,0,1,0,1,0.0
+2026-04-13,FECHAMENTO DE KIT,1,0,0,1,0,0.0
+2026-04-13,GUILHOTINA,4,0,0,4,0,0.0
+2026-04-13,MESA DE REVISÃO 1,3,0,1,2,1,0.0
+2026-04-13,OFFSET - SPEEDMASTER,4,4,0,0,4,100.0
+2026-04-13,PLOTTER VD330,6,0,5,1,5,0.0
+2026-04-13,REBOBINADEIRA ECO,6,3,1,2,4,75.0
+2026-04-13,REVISORA VRR STD 350,1,0,0,1,0,0.0
+2026-04-13,REVISÃO MANUAL,1,0,1,0,1,0.0
+2026-04-13,TROQUELADORA,3,1,0,2,1,100.0
+2026-04-14,BATIDA,4,4,0,0,4,100.0
+2026-04-14,BROTECH CDF330,12,12,0,0,12,100.0
+2026-04-14,CORTE E VINCO,1,0,1,0,1,0.0
+2026-04-14,DURST,25,24,1,0,25,96.0
+2026-04-14,EMBALAGEM FINAL,11,0,11,0,11,0.0
+2026-04-14,ETIRAMA FIT,1,1,0,0,1,100.0
+2026-04-14,ETIRAMA ONE,2,2,0,0,2,100.0
+2026-04-14,FECHAMENTO DE KIT,1,0,0,1,0,0.0
+2026-04-14,GUILHOTINA,5,0,2,3,2,0.0
+2026-04-14,OFFSET - SPEEDMASTER,1,1,0,0,1,100.0
+2026-04-14,PLOTTER VD330,3,1,2,0,3,33.33
+2026-04-14,REBOBINADEIRA ECO,5,1,1,3,2,50.0
+2026-04-14,REVISORA VRR STD 350,32,10,18,4,28,35.71
+2026-04-14,TROQUELADORA,3,2,1,0,3,66.67
+2026-04-15,BATIDA,11,10,1,0,11,90.91
+2026-04-15,BROTECH CDF330,4,4,0,0,4,100.0
+2026-04-15,DURST,16,16,0,0,16,100.0
+2026-04-15,EMBALAGEM FINAL,21,3,11,7,14,21.43
+2026-04-15,ETIRAMA ONE,5,4,1,0,5,80.0
+2026-04-15,GUILHOTINA,1,0,0,1,0,0.0
+2026-04-15,OFFSET - SPEEDMASTER,1,1,0,0,1,100.0
+2026-04-15,PLOTTER VD330,1,0,1,0,1,0.0
+2026-04-15,REBOBINADEIRA ECO,2,1,0,1,1,100.0
+2026-04-15,REVISORA VRR STD 350,17,5,0,12,5,100.0
+2026-04-15,TROQUELADORA,11,11,0,0,11,100.0
+2026-04-16,BATIDA,7,5,2,0,7,71.43
+2026-04-16,BROTECH CDF330,6,2,2,2,4,50.0
+2026-04-16,DOBRADEIRA,1,1,0,0,1,100.0
+2026-04-16,DURST,10,10,0,0,10,100.0
+2026-04-16,EMBALAGEM FINAL,16,1,7,8,8,12.5
+2026-04-16,ETIRAMA FIT,1,1,0,0,1,100.0
+2026-04-16,ETIRAMA ONE,5,5,0,0,5,100.0
+2026-04-16,GUILHOTINA,8,0,2,6,2,0.0
+2026-04-16,MESA DE REVISÃO 1,2,0,0,2,0,0.0
+2026-04-16,OFFSET - SPEEDMASTER,2,1,0,1,1,100.0
+2026-04-16,PLOTTER VD330,13,12,0,1,12,100.0
+2026-04-16,REBOBINADEIRA ECO,6,2,0,4,2,100.0
+2026-04-16,REVISORA VRR STD 350,8,0,4,4,4,0.0
+2026-04-16,REVISÃO MANUAL,1,0,1,0,1,0.0
+2026-04-16,TERCEIROS,1,0,1,0,1,0.0
+2026-04-16,TROQUELADORA,6,0,6,0,6,0.0
+2026-04-17,BATIDA,3,1,0,2,1,100.0
+2026-04-17,BROTECH CDF330,15,0,13,2,13,0.0
+2026-04-17,DOBRADEIRA,2,2,0,0,2,100.0
+2026-04-17,DURST,6,4,0,2,4,100.0
+2026-04-17,EMBALAGEM FINAL,30,7,22,1,29,24.14
+2026-04-17,ETIRAMA ONE,4,4,0,0,4,100.0
+2026-04-17,GUILHOTINA,5,0,2,3,2,0.0
+2026-04-17,MESA DE REVISÃO 1,1,0,0,1,0,0.0
+2026-04-17,OFFSET - SPEEDMASTER,3,3,0,0,3,100.0
+2026-04-17,PLOTTER VD330,6,2,0,4,2,100.0
+2026-04-17,REBOBINADEIRA ECO,5,4,1,0,5,80.0
+2026-04-17,REVISORA VRR STD 350,13,0,8,5,8,0.0
+2026-04-17,REVISÃO MANUAL,3,0,3,0,3,0.0
+2026-04-17,TROQUELADORA,7,5,0,2,5,100.0
+2026-04-18,BATIDA,1,1,0,0,1,100.0
+2026-04-18,BROTECH CDF330,13,11,0,2,11,100.0
+2026-04-18,DOBRADEIRA,4,2,0,2,2,100.0
+2026-04-18,GUILHOTINA,3,0,0,3,0,0.0
+2026-04-18,OFFSET - SPEEDMASTER,2,2,0,0,2,100.0
+2026-04-18,PLOTTER VD330,11,8,0,3,8,100.0
+2026-04-18,REBOBINADEIRA ECO,20,7,0,13,7,100.0
+2026-04-18,REVISORA VRR STD 350,11,1,0,10,1,100.0
+2026-04-18,REVISÃO MANUAL,3,0,3,0,3,0.0
+2026-04-21,BATIDA,3,0,3,0,3,0.0
+2026-04-21,BROTECH CDF330,7,5,0,2,5,100.0
+2026-04-21,DURST,15,15,0,0,15,100.0
+2026-04-21,EMBALAGEM FINAL,14,2,5,7,7,28.57
+2026-04-21,ETIRAMA ONE,2,2,0,0,2,100.0
+2026-04-21,GRAMPEADEIRA,1,0,1,0,1,0.0
+2026-04-21,GUILHOTINA,7,0,6,1,6,0.0
+2026-04-21,MESA DE REVISÃO 1,1,0,0,1,0,0.0
+2026-04-21,PLOTTER VD330,1,0,1,0,1,0.0
+2026-04-21,REBOBINADEIRA ECO,4,2,0,2,2,100.0
+2026-04-21,REVISORA VRR STD 350,20,2,4,14,6,33.33
+2026-04-21,TROQUELADORA,1,1,0,0,1,100.0
+2026-04-22,BATIDA,5,3,2,0,5,60.0
+2026-04-22,BROTECH CDF330,14,6,4,4,10,60.0
+2026-04-22,DOBRADEIRA,2,2,0,0,2,100.0
+2026-04-22,DURST,18,11,6,1,17,64.71
+2026-04-22,EMBALAGEM FINAL,40,4,15,21,19,21.05
+2026-04-22,ETIRAMA ONE,2,2,0,0,2,100.0
+2026-04-22,ETIRAMA WINE,2,0,1,1,1,0.0
+2026-04-22,GUILHOTINA,4,0,0,4,0,0.0
+2026-04-22,MESA DE REVISÃO 1,4,0,2,2,2,0.0
+2026-04-22,OFFSET - SPEEDMASTER,2,2,0,0,2,100.0
+2026-04-22,PLOTTER VD330,1,0,1,0,1,0.0
+2026-04-22,REBOBINADEIRA ECO,7,4,0,3,4,100.0
+2026-04-22,REVISORA VRR STD 350,15,6,4,5,10,60.0
+2026-04-22,REVISÃO MANUAL,4,0,3,1,3,0.0
+2026-04-22,TROQUELADORA,5,2,0,3,2,100.0
+2026-04-23,BATIDA,4,4,0,0,4,100.0
+2026-04-23,BROTECH CDF330,6,4,0,2,4,100.0
+2026-04-23,DOBRADEIRA,3,2,1,0,3,66.67
+2026-04-23,DURST,4,0,4,0,4,0.0
+2026-04-23,EMBALAGEM FINAL,32,14,10,8,24,58.33
+2026-04-23,ETIRAMA ONE,2,1,1,0,2,50.0
+2026-04-23,ETIRAMA WINE,1,1,0,0,1,100.0
+2026-04-23,FECHAMENTO DE KIT,2,1,1,0,2,50.0
+2026-04-23,GUILHOTINA,3,0,2,1,2,0.0
+2026-04-23,MESA DE REVISÃO 1,3,0,1,2,1,0.0
+2026-04-23,OFFSET - SPEEDMASTER,2,1,1,0,2,50.0
+2026-04-23,PLOTTER VD330,1,0,0,1,0,0.0
+2026-04-23,REBOBINADEIRA ECO,13,7,1,5,8,87.5
+2026-04-23,REVISORA VRR STD 350,7,6,1,0,7,85.71
+2026-04-23,TROQUELADORA,14,14,0,0,14,100.0
+2026-04-24,BATIDA,10,10,0,0,10,100.0
+2026-04-24,BROTECH CDF330,1,1,0,0,1,100.0
+2026-04-24,CORTE E VINCO,1,0,1,0,1,0.0
+2026-04-24,DOBRADEIRA,2,1,0,1,1,100.0
+2026-04-24,DURST,7,7,0,0,7,100.0
+2026-04-24,EMBALAGEM FINAL,25,4,15,6,19,21.05
+2026-04-24,ETIRAMA FIT,3,0,3,0,3,0.0
+2026-04-24,ETIRAMA ONE,3,2,1,0,3,66.67
+2026-04-24,ETIRAMA WINE,1,1,0,0,1,100.0
+2026-04-24,GUILHOTINA,19,1,3,15,4,25.0
+2026-04-24,MESA DE REVISÃO 1,1,0,0,1,0,0.0
+2026-04-24,OFFSET - SPEEDMASTER,15,15,0,0,15,100.0
+2026-04-24,REBOBINADEIRA ECO,8,6,0,2,6,100.0
+2026-04-24,REVISORA VRR STD 350,3,3,0,0,3,100.0
+2026-04-24,REVISÃO MANUAL,4,1,3,0,4,25.0
+2026-04-24,TROQUELADORA,3,3,0,0,3,100.0
+2026-04-25,BROTECH CDF330,1,0,0,1,0,0.0
+2026-04-25,PLOTTER VD330,1,1,0,0,1,100.0
+2026-04-25,REBOBINADEIRA ECO,7,7,0,0,7,100.0
+2026-04-25,REVISORA VRR STD 350,3,3,0,0,3,100.0
+2026-04-25,TROQUELADORA,1,1,0,0,1,100.0
+2026-04-26,BROTECH CDF330,1,0,0,1,0,0.0
+2026-04-26,DURST,1,1,0,0,1,100.0
+2026-04-26,EMBALAGEM FINAL,12,0,6,6,6,0.0
+2026-04-26,FECHAMENTO DE KIT,3,0,0,3,0,0.0
+2026-04-26,FINALIZAÇÃO DE OP (GERENTE),16,0,10,6,10,0.0
+2026-04-26,REBOBINADEIRA ECO,1,0,0,1,0,0.0
+2026-04-27,BATIDA,10,10,0,0,10,100.0
+2026-04-27,BROTECH CDF330,13,10,0,3,10,100.0
+2026-04-27,DOBRADEIRA,9,7,2,0,9,77.78
+2026-04-27,DURST,10,10,0,0,10,100.0
+2026-04-27,EMBALAGEM FINAL,10,5,5,0,10,50.0
+2026-04-27,ETIRAMA FIT,4,4,0,0,4,100.0
+2026-04-27,ETIRAMA ONE,3,3,0,0,3,100.0
+2026-04-27,GUILHOTINA,19,5,9,5,14,35.71
+2026-04-27,OFFSET - SPEEDMASTER,5,5,0,0,5,100.0
+2026-04-27,PLOTTER VD330,6,4,2,0,6,66.67
+2026-04-27,REBOBINADEIRA ECO,7,6,0,1,6,100.0
+2026-04-27,REVISORA VRR STD 350,4,2,2,0,4,50.0
+2026-04-27,REVISÃO GERAL,1,1,0,0,1,100.0
+2026-04-27,REVISÃO MANUAL,4,2,2,0,4,50.0
+2026-04-27,TROQUELADORA,1,1,0,0,1,100.0
+2026-04-28,BATIDA,4,2,0,2,2,100.0
+2026-04-28,BROTECH CDF330,5,1,0,4,1,100.0
+2026-04-28,DOBRADEIRA,1,1,0,0,1,100.0
+2026-04-28,DURST,7,6,1,0,7,85.71
+2026-04-28,EMBALAGEM FINAL,32,5,27,0,32,15.62
+2026-04-28,ETIRAMA FIT,2,1,0,1,1,100.0
+2026-04-28,ETIRAMA ONE,3,2,1,0,3,66.67
+2026-04-28,GUILHOTINA,8,0,2,6,2,0.0
+2026-04-28,MESA DE REVISÃO 1,8,1,7,0,8,12.5
+2026-04-28,OFFSET - SPEEDMASTER,6,6,0,0,6,100.0
+2026-04-28,PLOTTER VD330,6,4,1,1,5,80.0
+2026-04-28,REBOBINADEIRA ECO,11,1,1,9,2,50.0
+2026-04-28,REVISORA VRR STD 350,12,1,11,0,12,8.33
+2026-04-28,REVISÃO GERAL,1,0,0,1,0,0.0
+2026-04-28,REVISÃO MANUAL,4,0,4,0,4,0.0
+2026-04-28,TROQUELADORA,5,0,3,2,3,0.0
+2026-04-29,BATIDA,6,0,1,5,1,0.0
+2026-04-29,BROTECH CDF330,17,0,0,17,0,0.0
+2026-04-29,DOBRADEIRA,2,0,0,2,0,0.0
+2026-04-29,DURST,21,12,6,3,18,66.67
+2026-04-29,EMBALAGEM FINAL,31,0,19,12,19,0.0
+2026-04-29,ETIRAMA ONE,1,0,0,1,0,0.0
+2026-04-29,GUILHOTINA,11,0,8,3,8,0.0
+2026-04-29,MESA DE REVISÃO 1,2,0,2,0,2,0.0
+2026-04-29,OFFSET - SPEEDMASTER,3,3,0,0,3,100.0
+2026-04-29,PLOTTER VD330,7,1,2,4,3,33.33
+2026-04-29,REBOBINADEIRA ECO,8,0,1,7,1,0.0
+2026-04-29,REVISORA VRR STD 350,7,0,4,3,4,0.0
+2026-04-29,REVISÃO GERAL,1,0,0,1,0,0.0
+2026-04-29,TROQUELADORA,1,0,0,1,0,0.0
+2026-04-30,BATIDA,4,3,0,1,3,100.0
+2026-04-30,BROTECH CDF330,3,2,0,1,2,100.0
+2026-04-30,DOBRADEIRA,2,1,0,1,1,100.0
+2026-04-30,DURST,51,42,9,0,51,82.35
+2026-04-30,EMBALAGEM FINAL,19,6,5,8,11,54.55
+2026-04-30,ETIRAMA FIT,1,1,0,0,1,100.0
+2026-04-30,GUILHOTINA,7,0,3,4,3,0.0
+2026-04-30,MESA DE REVISÃO 1,2,0,2,0,2,0.0
+2026-04-30,OFFSET - SPEEDMASTER,3,2,1,0,3,66.67
+2026-04-30,PLOTTER VD330,8,6,1,1,7,85.71
+2026-04-30,REBOBINADEIRA ECO,5,3,0,2,3,100.0
+2026-04-30,REVISORA VRR STD 350,9,8,0,1,8,100.0
+2026-04-30,REVISÃO GERAL,5,0,0,5,0,0.0
+2026-04-30,REVISÃO MANUAL,4,0,4,0,4,0.0
+2026-04-30,TROQUELADORA,2,1,0,1,1,100.0
+2026-05-01,DOBRADEIRA,5,3,0,2,3,100.0
+2026-05-01,MESA DE REVISÃO 1,1,0,1,0,1,0.0
+2026-05-01,REVISÃO MANUAL,3,0,3,0,3,0.0
+2026-05-02,DOBRADEIRA,5,3,0,2,3,100.0
+2026-05-02,MESA DE REVISÃO 1,1,0,1,0,1,0.0
+2026-05-02,REVISÃO MANUAL,1,0,1,0,1,0.0
+2026-05-04,BROTECH CDF330,17,17,0,0,17,100.0
+2026-05-04,DOBRADEIRA,3,3,0,0,3,100.0
+2026-05-04,DURST,42,38,4,0,42,90.48
+2026-05-04,EMBALAGEM FINAL,22,2,12,8,14,14.29
+2026-05-04,ETIRAMA FIT,1,1,0,0,1,100.0
+2026-05-04,ETIRAMA ONE,2,1,1,0,2,50.0
+2026-05-04,ETIRAMA WINE,1,1,0,0,1,100.0
+2026-05-04,GUILHOTINA,3,0,0,3,0,0.0
+2026-05-04,MESA DE REVISÃO 1,3,0,3,0,3,0.0
+2026-05-04,OFFSET - SPEEDMASTER,3,2,0,1,2,100.0
+2026-05-04,PLOTTER VD330,7,3,4,0,7,42.86
+2026-05-04,REBOBINADEIRA ECO,5,1,0,4,1,100.0
+2026-05-04,REVISORA VRR STD 350,5,2,3,0,5,40.0
+2026-05-04,REVISÃO GERAL,1,1,0,0,1,100.0
+2026-05-04,REVISÃO MANUAL,1,0,1,0,1,0.0
+2026-05-04,ZEBRA - TÉRMICA,1,0,0,1,0,0.0
+2026-05-05,BATIDA,2,1,1,0,2,50.0
+2026-05-05,BROTECH CDF330,29,0,23,6,23,0.0
+2026-05-05,DOBRADEIRA,2,1,1,0,2,50.0
+2026-05-05,DURST,35,31,4,0,35,88.57
+2026-05-05,EMBALAGEM FINAL,14,6,5,3,11,54.55
+2026-05-05,ETIRAMA ONE,2,2,0,0,2,100.0
+2026-05-05,FECHAMENTO DE KIT,1,0,0,1,0,0.0
+2026-05-05,GUILHOTINA,13,1,7,5,8,12.5
+2026-05-05,MESA DE REVISÃO 1,3,1,1,1,2,50.0
+2026-05-05,OFFSET - SPEEDMASTER,4,4,0,0,4,100.0
+2026-05-05,PLOTTER VD330,3,2,0,1,2,100.0
+2026-05-05,REBOBINADEIRA ECO,3,1,0,2,1,100.0
+2026-05-05,REVISORA VRR STD 350,12,11,0,1,11,100.0
+2026-05-05,REVISÃO MANUAL,1,0,1,0,1,0.0
+2026-05-05,TERCEIROS,1,0,0,1,0,0.0
+2026-05-05,TROQUELADORA,2,0,1,1,1,0.0
+2026-05-06,BATIDA,2,2,0,0,2,100.0
+2026-05-06,BROTECH CDF330,41,41,0,0,41,100.0
+2026-05-06,DOBRADEIRA,2,2,0,0,2,100.0
+2026-05-06,DURST,2,1,1,0,2,50.0
+2026-05-06,EMBALAGEM FINAL,17,0,11,6,11,0.0
+2026-05-06,ETIRAMA ONE,3,2,1,0,3,66.67
+2026-05-06,GUILHOTINA,7,2,4,1,6,33.33
+2026-05-06,MESA DE REVISÃO 1,1,0,1,0,1,0.0
+2026-05-06,OFFSET - SPEEDMASTER,1,1,0,0,1,100.0
+2026-05-06,PLOTTER VD330,2,0,2,0,2,0.0
+2026-05-06,REBOBINADEIRA ECO,2,0,2,0,2,0.0
+2026-05-06,REVISORA VRR STD 350,19,5,4,10,9,55.56
+2026-05-06,REVISÃO MANUAL,1,0,1,0,1,0.0
+2026-05-07,BATIDA,2,2,0,0,2,100.0
+2026-05-07,BROTECH CDF330,30,30,0,0,30,100.0
+2026-05-07,DURST,4,1,1,2,2,50.0
+2026-05-07,EMBALAGEM FINAL,50,28,5,17,33,84.85
+2026-05-07,ETIRAMA ONE,1,1,0,0,1,100.0
+2026-05-07,MESA DE REVISÃO 1,4,0,3,1,3,0.0
+2026-05-07,REBOBINADEIRA ECO,27,14,0,13,14,100.0
+2026-05-07,REVISORA VRR STD 350,22,22,0,0,22,100.0
+2026-05-07,TROQUELADORA,3,3,0,0,3,100.0
+2026-05-08,BATIDA,4,1,0,3,1,100.0
+2026-05-08,DOBRADEIRA,2,1,0,1,1,100.0
+2026-05-08,DURST,13,13,0,0,13,100.0
+2026-05-08,EMBALAGEM FINAL,44,14,24,6,38,36.84
+2026-05-08,ETIRAMA FIT,1,1,0,0,1,100.0
+2026-05-08,ETIRAMA ONE,4,4,0,0,4,100.0
+2026-05-08,GUILHOTINA,1,0,0,1,0,0.0
+2026-05-08,OFFSET - SPEEDMASTER,2,2,0,0,2,100.0
+2026-05-08,PLOTTER VD330,1,0,1,0,1,0.0
+2026-05-08,REBOBINADEIRA ECO,19,1,7,11,8,12.5
+2026-05-08,REVISORA VRR STD 350,23,7,13,3,20,35.0
+2026-05-08,TROQUELADORA,7,0,7,0,7,0.0
+2026-05-09,TROQUELADORA,1,1,0,0,1,100.0
+2026-05-11,BATIDA,3,3,0,0,3,100.0
+2026-05-11,BROTECH CDF330,4,3,0,1,3,100.0
+2026-05-11,DURST,12,11,0,1,11,100.0
+2026-05-11,EMBALAGEM FINAL,30,2,15,13,17,11.76
+2026-05-11,ETIRAMA FIT,1,1,0,0,1,100.0
+2026-05-11,ETIRAMA ONE,2,2,0,0,2,100.0
+2026-05-11,FECHAMENTO DE KIT,1,0,0,1,0,0.0
+2026-05-11,GUILHOTINA,5,0,3,2,3,0.0
+2026-05-11,MESA DE REVISÃO 1,1,0,0,1,0,0.0
+2026-05-11,OFFSET - SPEEDMASTER,3,3,0,0,3,100.0
+2026-05-11,PLOTTER VD330,6,6,0,0,6,100.0
+2026-05-11,REBOBINADEIRA ECO,9,8,0,1,8,100.0
+2026-05-11,REVISORA VRR STD 350,3,2,1,0,3,66.67
+2026-05-11,REVISÃO GERAL,1,0,0,1,0,0.0
+2026-05-11,TERCEIROS,1,0,0,1,0,0.0
+2026-05-11,TROQUELADORA,4,3,0,1,3,100.0
+2026-05-12,BATIDA,3,1,0,2,1,100.0
+2026-05-12,BROTECH CDF330,9,8,1,0,9,88.89
+2026-05-12,CORTE E VINCO,2,0,2,0,2,0.0
+2026-05-12,DOBRADEIRA,3,2,0,1,2,100.0
+2026-05-12,DURST,6,5,1,0,6,83.33
+2026-05-12,EMBALAGEM FINAL,16,3,10,3,13,23.08
+2026-05-12,ETIRAMA FIT,2,1,1,0,2,50.0
+2026-05-12,ETIRAMA ONE,4,4,0,0,4,100.0
+2026-05-12,GUILHOTINA,1,0,0,1,0,0.0
+2026-05-12,MESA DE REVISÃO 1,6,0,5,1,5,0.0
+2026-05-12,OFFSET - SPEEDMASTER,2,2,0,0,2,100.0
+2026-05-12,PLOTTER VD330,2,0,1,1,1,0.0
+2026-05-12,REBOBINADEIRA ECO,3,1,0,2,1,100.0
+2026-05-12,REVISORA VRR STD 350,2,2,0,0,2,100.0
+2026-05-12,REVISÃO MANUAL,3,0,3,0,3,0.0
+2026-05-12,TROQUELADORA,7,6,0,1,6,100.0
+2026-05-13,BROTECH CDF330,4,4,0,0,4,100.0
+2026-05-13,CORTE E VINCO,1,0,0,1,0,0.0
+2026-05-13,DOBRADEIRA,5,3,0,2,3,100.0
+2026-05-13,DURST,21,19,0,2,19,100.0
+2026-05-13,EMBALAGEM FINAL,14,4,6,4,10,40.0
+2026-05-13,ETIRAMA FIT,2,1,1,0,2,50.0
+2026-05-13,ETIRAMA ONE,3,3,0,0,3,100.0
+2026-05-13,ETIRAMA WINE,5,5,0,0,5,100.0
+2026-05-13,FINALIZAÇÃO DE OP (GERENTE),2,0,2,0,2,0.0
+2026-05-13,GUILHOTINA,5,2,1,2,3,66.67
+2026-05-13,MESA DE REVISÃO 1,6,1,2,3,3,33.33
+2026-05-13,PLOTTER VD330,1,1,0,0,1,100.0
+2026-05-13,REBOBINADEIRA ECO,8,2,1,5,3,66.67
+2026-05-13,REVISORA VRR STD 350,8,6,0,2,6,100.0
+2026-05-13,REVISÃO MANUAL,2,0,1,1,1,0.0
+2026-05-13,TERCEIROS,1,0,0,1,0,0.0
+2026-05-13,TROQUELADORA,3,0,1,2,1,0.0
+2026-05-14,BATIDA,5,4,1,0,5,80.0
+2026-05-14,BROTECH CDF330,4,4,0,0,4,100.0
+2026-05-14,CORTE E VINCO,2,1,1,0,2,50.0
+2026-05-14,DURST,11,5,6,0,11,45.45
+2026-05-14,EMBALAGEM FINAL,15,4,7,4,11,36.36
+2026-05-14,ETIRAMA FIT,2,0,2,0,2,0.0
+2026-05-14,ETIRAMA ONE,2,2,0,0,2,100.0
+2026-05-14,GUILHOTINA,4,0,1,3,1,0.0
+2026-05-14,OFFSET - SPEEDMASTER,3,3,0,0,3,100.0
+2026-05-14,PLOTTER VD330,5,5,0,0,5,100.0
+2026-05-14,REBOBINADEIRA ECO,12,5,3,4,8,62.5
+2026-05-14,REVISORA VRR STD 350,9,2,6,1,8,25.0
+2026-05-14,TERCEIROS,2,1,1,0,2,50.0
+2026-05-14,TROQUELADORA,2,0,2,0,2,0.0
+2026-05-15,BATIDA,5,1,4,0,5,20.0
+2026-05-15,BROTECH CDF330,5,4,1,0,5,80.0
+2026-05-15,DOBRADEIRA,2,0,2,0,2,0.0
+2026-05-15,DURST,2,0,2,0,2,0.0
+2026-05-15,EMBALAGEM FINAL,14,4,6,4,10,40.0
+2026-05-15,ETIRAMA FIT,1,0,1,0,1,0.0
+2026-05-15,ETIRAMA ONE,4,2,0,2,2,100.0
+2026-05-15,ETIRAMA WINE,3,1,2,0,3,33.33
+2026-05-15,GUILHOTINA,3,0,1,2,1,0.0
+2026-05-15,MESA DE REVISÃO 1,1,0,0,1,0,0.0
+2026-05-15,OFFSET - SPEEDMASTER,2,2,0,0,2,100.0
+2026-05-15,PLOTTER VD330,6,0,6,0,6,0.0
+2026-05-15,REBOBINADEIRA ECO,4,0,0,4,0,0.0
+2026-05-15,REVISORA VRR STD 350,7,6,0,1,6,100.0
+2026-05-15,REVISÃO MANUAL,2,0,2,0,2,0.0
+2026-05-16,BATIDA,4,2,0,2,2,100.0
+2026-05-16,BROTECH CDF330,23,19,0,4,19,100.0
+2026-05-16,DURST,8,8,0,0,8,100.0
+2026-05-16,EMBALAGEM FINAL,7,4,0,3,4,100.0
+2026-05-16,ETIRAMA ONE,2,2,0,0,2,100.0
+2026-05-16,FINALIZAÇÃO DE OP (GERENTE),8,0,6,2,6,0.0
+2026-05-16,PLOTTER VD330,4,4,0,0,4,100.0
+2026-05-16,REBOBINADEIRA ECO,7,7,0,0,7,100.0
+2026-05-16,REVISORA VRR STD 350,10,0,0,10,0,0.0
+2026-05-18,BATIDA,6,6,0,0,6,100.0
+2026-05-18,BROTECH CDF330,3,2,0,1,2,100.0
+2026-05-18,CORTE E VINCO,1,0,1,0,1,0.0
+2026-05-18,DURST,18,12,6,0,18,66.67
+2026-05-18,EMBALAGEM FINAL,12,2,7,3,9,22.22
+2026-05-18,ETIRAMA ONE,1,1,0,0,1,100.0
+2026-05-18,GUILHOTINA,7,2,0,5,2,100.0
+2026-05-18,MESA DE REVISÃO 1,21,0,0,21,0,0.0
+2026-05-18,OFFSET - SPEEDMASTER,5,2,3,0,5,40.0
+2026-05-18,REBOBINADEIRA ECO,5,3,1,1,4,75.0
+2026-05-18,REVISORA VRR STD 350,3,3,0,0,3,100.0
+2026-05-18,TROQUELADORA,1,1,0,0,1,100.0
+2026-05-19,BATIDA,4,4,0,0,4,100.0
+2026-05-19,BROTECH CDF330,8,5,0,3,5,100.0
+2026-05-19,DOBRADEIRA,1,1,0,0,1,100.0
+2026-05-19,DURST,2,1,1,0,2,50.0
+2026-05-19,EMBALAGEM FINAL,10,1,7,2,8,12.5
+2026-05-19,ETIRAMA FIT,1,1,0,0,1,100.0
+2026-05-19,ETIRAMA ONE,5,5,0,0,5,100.0
+2026-05-19,GUILHOTINA,6,0,2,4,2,0.0
+2026-05-19,MESA DE REVISÃO 1,3,0,2,1,2,0.0
+2026-05-19,OFFSET - SPEEDMASTER,4,4,0,0,4,100.0
+2026-05-19,PLOTTER VD330,12,6,1,5,7,85.71
+2026-05-19,REBOBINADEIRA ECO,5,3,0,2,3,100.0
+2026-05-19,REVISORA VRR STD 350,3,0,0,3,0,0.0
+2026-05-19,REVISÃO MANUAL,1,0,1,0,1,0.0
+2026-05-19,TROQUELADORA,9,9,0,0,9,100.0
+2026-05-20,BATIDA,6,5,0,1,5,100.0
+2026-05-20,BROTECH CDF330,5,1,0,4,1,100.0
+2026-05-20,CORTE E VINCO,2,0,2,0,2,0.0
+2026-05-20,DOBRADEIRA,1,1,0,0,1,100.0
+2026-05-20,DURST,8,4,4,0,8,50.0
+2026-05-20,EMBALAGEM FINAL,30,1,11,18,12,8.33
+2026-05-20,ETIRAMA ONE,4,2,1,1,3,66.67
+2026-05-20,ETIRAMA WINE,5,0,0,5,0,0.0
+2026-05-20,GUILHOTINA,10,0,8,2,8,0.0
+2026-05-20,OFFSET - SPEEDMASTER,1,1,0,0,1,100.0
+2026-05-20,PLOTTER VD330,7,7,0,0,7,100.0
+2026-05-20,REBOBINADEIRA ECO,28,7,0,21,7,100.0
+2026-05-20,REVISORA VRR STD 350,9,2,0,7,2,100.0
+2026-05-20,REVISÃO GERAL,2,1,0,1,1,100.0
+2026-05-20,REVISÃO MANUAL,2,0,2,0,2,0.0
+2026-05-20,TROQUELADORA,1,1,0,0,1,100.0
+2026-05-20,ZEBRA - TÉRMICA,5,0,0,5,0,0.0
+2026-05-21,BATIDA,6,5,0,1,5,100.0
+2026-05-21,BROTECH CDF330,14,14,0,0,14,100.0
+2026-05-21,DURST,23,15,8,0,23,65.22
+2026-05-21,EMBALAGEM FINAL,12,2,7,3,9,22.22
+2026-05-21,ETIRAMA ONE,3,3,0,0,3,100.0
+2026-05-21,ETIRAMA WINE,1,1,0,0,1,100.0
+2026-05-21,MESA DE REVISÃO 1,1,0,1,0,1,0.0
+2026-05-21,PLOTTER VD330,3,3,0,0,3,100.0
+2026-05-21,REBOBINADEIRA ECO,7,6,0,1,6,100.0
+2026-05-21,REVISORA VRR STD 350,3,0,1,2,1,0.0
+2026-05-21,REVISÃO MANUAL,1,0,1,0,1,0.0
+2026-05-21,TROQUELADORA,3,2,0,1,2,100.0
+2026-05-22,BATIDA,4,2,0,2,2,100.0
+2026-05-22,BROTECH CDF330,3,3,0,0,3,100.0
+2026-05-22,DURST,12,11,1,0,12,91.67
+2026-05-22,EMBALAGEM FINAL,34,5,19,10,24,20.83
+2026-05-22,ETIRAMA FIT,4,4,0,0,4,100.0
+2026-05-22,ETIRAMA ONE,5,5,0,0,5,100.0
+2026-05-22,ETIRAMA WINE,1,0,1,0,1,0.0
+2026-05-22,FECHAMENTO DE KIT,1,0,0,1,0,0.0
+2026-05-22,GRAMPEADEIRA,1,0,1,0,1,0.0
+2026-05-22,GUILHOTINA,2,0,2,0,2,0.0
+2026-05-22,MESA DE REVISÃO 1,3,1,1,1,2,50.0
+2026-05-22,PLOTTER VD330,7,3,0,4,3,100.0
+2026-05-22,REBOBINADEIRA ECO,13,6,7,0,13,46.15
+2026-05-22,REVISORA VRR STD 350,8,0,0,8,0,0.0
+2026-05-22,REVISÃO GERAL,1,1,0,0,1,100.0
+2026-05-22,REVISÃO MANUAL,3,0,3,0,3,0.0
+2026-05-22,TERCEIROS,1,0,0,1,0,0.0
+2026-05-22,TROQUELADORA,1,1,0,0,1,100.0
+2026-05-25,BATIDA,8,2,0,6,2,100.0
+2026-05-25,BROTECH CDF330,3,2,0,1,2,100.0
+2026-05-25,DOBRADEIRA,3,3,0,0,3,100.0
+2026-05-25,DURST,17,13,0,4,13,100.0
+2026-05-25,EMBALAGEM FINAL,13,5,4,4,9,55.56
+2026-05-25,ETIRAMA FIT,3,3,0,0,3,100.0
+2026-05-25,ETIRAMA ONE,3,2,1,0,3,66.67
+2026-05-25,GUILHOTINA,4,3,0,1,3,100.0
+2026-05-25,MESA DE REVISÃO 1,2,0,0,2,0,0.0
+2026-05-25,OFFSET - SPEEDMASTER,1,1,0,0,1,100.0
+2026-05-25,PLOTTER VD330,5,4,0,1,4,100.0
+2026-05-25,REBOBINADEIRA ECO,20,7,0,13,7,100.0
+2026-05-25,REVISORA VRR STD 350,6,1,0,5,1,100.0
+2026-05-25,REVISÃO MANUAL,1,0,1,0,1,0.0
+2026-05-25,TERCEIROS,2,0,0,2,0,0.0
+2026-05-25,TROQUELADORA,6,2,0,4,2,100.0
+2026-05-26,BATIDA,7,3,0,4,3,100.0
+2026-05-26,BROTECH CDF330,11,9,0,2,9,100.0
+2026-05-26,CORTE E VINCO,1,0,0,1,0,0.0
+2026-05-26,DOBRADEIRA,6,4,1,1,5,80.0
+2026-05-26,DURST,7,3,4,0,7,42.86
+2026-05-26,EMBALAGEM FINAL,14,1,6,7,7,14.29
+2026-05-26,ETIRAMA FIT,2,2,0,0,2,100.0
+2026-05-26,ETIRAMA ONE,1,1,0,0,1,100.0
+2026-05-26,GUILHOTINA,10,1,1,8,2,50.0
+2026-05-26,MESA DE REVISÃO 1,3,2,1,0,3,66.67
+2026-05-26,OFFSET - SPEEDMASTER,4,0,0,4,0,0.0
+2026-05-26,PLOTTER VD330,3,3,0,0,3,100.0
+2026-05-26,REBOBINADEIRA ECO,11,3,0,8,3,100.0
+2026-05-26,REVISORA VRR STD 350,7,1,1,5,2,50.0
+2026-05-26,REVISÃO GERAL,1,0,0,1,0,0.0
+2026-05-26,REVISÃO MANUAL,1,0,1,0,1,0.0
+2026-05-26,TROQUELADORA,9,0,0,9,0,0.0
+2026-05-27,BATIDA,3,3,0,0,3,100.0
+2026-05-27,BROTECH CDF330,4,3,1,0,4,75.0
+2026-05-27,DOBRADEIRA,3,3,0,0,3,100.0
+2026-05-27,DURST,22,21,1,0,22,95.45
+2026-05-27,EMBALAGEM FINAL,21,7,3,11,10,70.0
+2026-05-27,ETIRAMA FIT,2,2,0,0,2,100.0
+2026-05-27,ETIRAMA ONE,2,1,0,1,1,100.0
+2026-05-27,ETIRAMA WINE,3,3,0,0,3,100.0
+2026-05-27,GUILHOTINA,4,0,2,2,2,0.0
+2026-05-27,MESA DE REVISÃO 1,9,4,2,3,6,66.67
+2026-05-27,OFFSET - SPEEDMASTER,1,0,0,1,0,0.0
+2026-05-27,REBOBINADEIRA ECO,17,7,0,10,7,100.0
+2026-05-27,REVISORA VRR STD 350,7,5,1,1,6,83.33
+2026-05-27,REVISÃO GERAL,1,1,0,0,1,100.0
+2026-05-27,REVISÃO MANUAL,2,0,2,0,2,0.0
+2026-05-27,TERCEIROS,2,0,1,1,1,0.0
+2026-05-27,TROQUELADORA,14,13,1,0,14,92.86
+2026-05-28,BATIDA,6,3,1,2,4,75.0
+2026-05-28,BROTECH CDF330,10,10,0,0,10,100.0
+2026-05-28,DOBRADEIRA,2,2,0,0,2,100.0
+2026-05-28,DURST,6,6,0,0,6,100.0
+2026-05-28,EMBALAGEM FINAL,12,1,5,6,6,16.67
+2026-05-28,ETIRAMA FIT,3,0,3,0,3,0.0
+2026-05-28,ETIRAMA ONE,1,1,0,0,1,100.0
+2026-05-28,ETIRAMA WINE,3,1,2,0,3,33.33
+2026-05-28,FINALIZAÇÃO DE OP (GERENTE),2,0,0,2,0,0.0
+2026-05-28,GUILHOTINA,1,0,0,1,0,0.0
+2026-05-28,MESA DE REVISÃO 1,1,0,1,0,1,0.0
+2026-05-28,OFFSET - SPEEDMASTER,1,1,0,0,1,100.0
+2026-05-28,PLOTTER VD330,1,0,0,1,0,0.0
+2026-05-28,REBOBINADEIRA ECO,5,0,2,3,2,0.0
+2026-05-28,REVISORA VRR STD 350,6,2,0,4,2,100.0
+2026-05-28,REVISÃO MANUAL,1,0,1,0,1,0.0
+2026-05-28,TROQUELADORA,2,2,0,0,2,100.0
+2026-05-29,BATIDA,5,5,0,0,5,100.0
+2026-05-29,BROTECH CDF330,4,3,1,0,4,75.0
+2026-05-29,DURST,25,25,0,0,25,100.0
+2026-05-29,EMBALAGEM FINAL,11,3,7,1,10,30.0
+2026-05-29,ETIRAMA FIT,2,0,2,0,2,0.0
+2026-05-29,ETIRAMA ONE,2,1,1,0,2,50.0
+2026-05-29,GUILHOTINA,4,0,1,3,1,0.0
+2026-05-29,MESA DE REVISÃO 1,2,0,0,2,0,0.0
+2026-05-29,OFFSET - SPEEDMASTER,3,3,0,0,3,100.0
+2026-05-29,PLOTTER VD330,7,7,0,0,7,100.0
+2026-05-29,REBOBINADEIRA ECO,7,4,0,3,4,100.0
+2026-05-29,REVISORA VRR STD 350,6,6,0,0,6,100.0
+2026-05-29,REVISÃO GERAL,1,1,0,0,1,100.0
+2026-05-29,REVISÃO MANUAL,1,0,1,0,1,0.0
+2026-05-29,TROQUELADORA,2,2,0,0,2,100.0
+2026-05-30,DOBRADEIRA,1,0,1,0,1,0.0
+2026-05-30,EMBALAGEM FINAL,5,0,5,0,5,0.0
+2026-05-30,ETIRAMA WINE,1,1,0,0,1,100.0
+2026-05-30,PLOTTER VD330,3,0,3,0,3,0.0
+2026-05-30,REBOBINADEIRA ECO,11,8,2,1,10,80.0
+2026-05-30,REVISORA VRR STD 350,2,1,0,1,1,100.0
+2026-05-30,TROQUELADORA,5,1,4,0,5,20.0
+2026-06-01,BATIDA,12,9,0,3,9,100.0
+2026-06-01,BROTECH CDF330,10,10,0,0,10,100.0
+2026-06-01,DOBRADEIRA,1,0,1,0,1,0.0
+2026-06-01,DURST,9,9,0,0,9,100.0
+2026-06-01,EMBALAGEM FINAL,16,6,8,2,14,42.86
+2026-06-01,ETIRAMA FIT,4,4,0,0,4,100.0
+2026-06-01,ETIRAMA ONE,1,0,0,1,0,0.0
+2026-06-01,ETIRAMA WINE,2,2,0,0,2,100.0
+2026-06-01,GUILHOTINA,4,0,4,0,4,0.0
+2026-06-01,MESA DE REVISÃO 1,3,0,1,2,1,0.0
+2026-06-01,PLOTTER VD330,3,3,0,0,3,100.0
+2026-06-01,REBOBINADEIRA ECO,4,3,0,1,3,100.0
+2026-06-01,REVISORA VRR STD 350,4,4,0,0,4,100.0
+2026-06-01,REVISÃO GERAL,1,1,0,0,1,100.0
+2026-06-01,REVISÃO MANUAL,4,0,4,0,4,0.0
+2026-06-01,TROQUELADORA,4,2,0,2,2,100.0
+2026-06-02,BATIDA,4,2,2,0,4,50.0
+2026-06-02,BROTECH CDF330,5,1,3,1,4,25.0
+2026-06-02,DOBRADEIRA,3,3,0,0,3,100.0
+2026-06-02,DURST,14,3,11,0,14,21.43
+2026-06-02,EMBALAGEM FINAL,26,8,16,2,24,33.33
+2026-06-02,ETIRAMA FIT,1,1,0,0,1,100.0
+2026-06-02,ETIRAMA ONE,4,4,0,0,4,100.0
+2026-06-02,GUILHOTINA,5,0,0,5,0,0.0
+2026-06-02,MESA DE REVISÃO 1,1,0,1,0,1,0.0
+2026-06-02,OFFSET - SPEEDMASTER,5,3,2,0,5,60.0
+2026-06-02,PLOTTER VD330,8,3,0,5,3,100.0
+2026-06-02,REBOBINADEIRA ECO,10,7,2,1,9,77.78
+2026-06-02,REVISORA VRR STD 350,1,1,0,0,1,100.0
+2026-06-02,REVISÃO MANUAL,2,0,2,0,2,0.0
+2026-06-02,TROQUELADORA,7,7,0,0,7,100.0
+2026-06-03,BATIDA,2,0,1,1,1,0.0
+2026-06-03,BROTECH CDF330,4,1,3,0,4,25.0
+2026-06-03,DOBRADEIRA,4,2,1,1,3,66.67
+2026-06-03,DURST,39,20,19,0,39,51.28
+2026-06-03,EMBALAGEM FINAL,21,10,4,7,14,71.43
+2026-06-03,ETIRAMA ONE,4,0,4,0,4,0.0
+2026-06-03,GUILHOTINA,10,3,3,4,6,50.0
+2026-06-03,MESA DE REVISÃO 1,1,1,0,0,1,100.0
+2026-06-03,OFFSET - SPEEDMASTER,2,1,0,1,1,100.0
+2026-06-03,PLOTTER VD330,3,3,0,0,3,100.0
+2026-06-03,REBOBINADEIRA ECO,25,6,0,19,6,100.0
+2026-06-03,REVISÃO MANUAL,2,0,2,0,2,0.0
+2026-06-03,TROQUELADORA,4,4,0,0,4,100.0
+2026-06-04,REBOBINADEIRA ECO,11,0,0,11,0,0.0
+2026-06-04,REVISORA VRR STD 350,3,1,1,1,2,50.0
+2026-06-05,REBOBINADEIRA ECO,9,0,1,8,1,0.0
+2026-06-05,REVISORA VRR STD 350,1,0,1,0,1,0.0
+2026-06-08,BATIDA,7,7,0,0,7,100.0
+2026-06-08,BROTECH CDF330,11,11,0,0,11,100.0
+2026-06-08,DOBRADEIRA,3,2,0,1,2,100.0
+2026-06-08,DURST,16,16,0,0,16,100.0
+2026-06-08,EMBALAGEM FINAL,32,1,5,26,6,16.67
+2026-06-08,ETIRAMA FIT,2,2,0,0,2,100.0
+2026-06-08,ETIRAMA ONE,6,6,0,0,6,100.0
+2026-06-08,GUILHOTINA,2,0,0,2,0,0.0
+2026-06-08,MESA DE REVISÃO 1,3,0,2,1,2,0.0
+2026-06-08,OFFSET - SPEEDMASTER,2,2,0,0,2,100.0
+2026-06-08,PLOTTER VD330,2,2,0,0,2,100.0
+2026-06-08,REBOBINADEIRA ECO,4,1,1,2,2,50.0
+2026-06-08,REVISORA VRR STD 350,13,12,0,1,12,100.0
+2026-06-08,REVISÃO MANUAL,1,0,1,0,1,0.0
+2026-06-08,TROQUELADORA,4,1,0,3,1,100.0
+2026-06-09,BATIDA,6,5,0,1,5,100.0
+2026-06-09,BROTECH CDF330,16,14,2,0,16,87.5
+2026-06-09,CORTE E VINCO,1,0,1,0,1,0.0
+2026-06-09,DOBRADEIRA,2,0,1,1,1,0.0
+2026-06-09,DURST,40,36,0,4,36,100.0
+2026-06-09,EMBALAGEM FINAL,19,2,11,6,13,15.38
+2026-06-09,ETIRAMA FIT,2,2,0,0,2,100.0
+2026-06-09,ETIRAMA ONE,2,2,0,0,2,100.0
+2026-06-09,ETIRAMA WINE,1,1,0,0,1,100.0
+2026-06-09,GUILHOTINA,3,0,1,2,1,0.0
+2026-06-09,OFFSET - SPEEDMASTER,1,0,1,0,1,0.0
+2026-06-09,REBOBINADEIRA ECO,4,0,1,3,1,0.0
+2026-06-09,REVISORA VRR STD 350,18,2,3,13,5,40.0
+2026-06-09,REVISÃO MANUAL,2,0,2,0,2,0.0
+2026-06-10,BATIDA,9,8,1,0,9,88.89
+2026-06-10,BROTECH CDF330,12,10,1,1,11,90.91
+2026-06-10,DOBRADEIRA,1,0,0,1,0,0.0
+2026-06-10,DURST,2,0,1,1,1,0.0
+2026-06-10,EMBALAGEM FINAL,28,4,2,22,6,66.67
+2026-06-10,ETIRAMA FIT,1,1,0,0,1,100.0
+2026-06-10,ETIRAMA ONE,3,3,0,0,3,100.0
+2026-06-10,GUILHOTINA,1,0,0,1,0,0.0
+2026-06-10,MESA DE REVISÃO 1,3,0,0,3,0,0.0
+2026-06-10,OFFSET - SPEEDMASTER,2,0,2,0,2,0.0
+2026-06-10,PLOTTER VD330,3,3,0,0,3,100.0
+2026-06-10,REBOBINADEIRA ECO,5,2,1,2,3,66.67
+2026-06-10,REVISORA VRR STD 350,22,7,0,15,7,100.0
+2026-06-10,REVISÃO GERAL,1,1,0,0,1,100.0
+2026-06-10,REVISÃO MANUAL,1,0,0,1,0,0.0
+2026-06-10,TROQUELADORA,4,2,0,2,2,100.0
+2026-06-11,BATIDA,5,2,1,2,3,66.67
+2026-06-11,BROTECH CDF330,3,0,3,0,3,0.0
+2026-06-11,DOBRADEIRA,1,0,0,1,0,0.0
+2026-06-11,DURST,4,4,0,0,4,100.0
+2026-06-11,EMBALAGEM FINAL,39,10,10,19,20,50.0
+2026-06-11,ETIRAMA FIT,1,1,0,0,1,100.0
+2026-06-11,ETIRAMA ONE,4,3,1,0,4,75.0
+2026-06-11,ETIRAMA WINE,1,1,0,0,1,100.0
+2026-06-11,FINALIZAÇÃO DE OP (GERENTE),18,0,0,18,0,0.0
+2026-06-11,GUILHOTINA,6,0,2,4,2,0.0
+2026-06-11,MESA DE REVISÃO 1,2,0,2,0,2,0.0
+2026-06-11,OFFSET - SPEEDMASTER,4,4,0,0,4,100.0
+2026-06-11,PLOTTER VD330,20,5,5,10,10,50.0
+2026-06-11,REBOBINADEIRA ECO,21,11,2,8,13,84.62
+2026-06-11,REVISORA VRR STD 350,28,10,10,8,20,50.0
+2026-06-11,REVISÃO GERAL,1,0,0,1,0,0.0
+2026-06-11,REVISÃO MANUAL,1,0,1,0,1,0.0
+2026-06-11,TROQUELADORA,4,1,0,3,1,100.0
+2026-06-12,BATIDA,4,2,0,2,2,100.0
+2026-06-12,BROTECH CDF330,9,8,0,1,8,100.0
+2026-06-12,CORTE E VINCO,5,0,5,0,5,0.0
+2026-06-12,DURST,33,16,17,0,33,48.48
+2026-06-12,EMBALAGEM FINAL,22,3,10,9,13,23.08
+2026-06-12,ETIRAMA FIT,2,1,1,0,2,50.0
+2026-06-12,ETIRAMA ONE,10,10,0,0,10,100.0
+2026-06-12,ETIRAMA WINE,2,1,1,0,2,50.0
+2026-06-12,GUILHOTINA,10,0,4,6,4,0.0
+2026-06-12,MESA DE REVISÃO 1,1,0,0,1,0,0.0
+2026-06-12,OFFSET - SPEEDMASTER,6,6,0,0,6,100.0
+2026-06-12,PLOTTER VD330,6,1,0,5,1,100.0
+2026-06-12,REBOBINADEIRA ECO,17,2,0,15,2,100.0
+2026-06-12,REVISORA VRR STD 350,4,0,0,4,0,0.0
+2026-06-12,TROQUELADORA,3,3,0,0,3,100.0
+2026-06-13,BATIDA,14,14,0,0,14,100.0
+2026-06-13,BROTECH CDF330,5,4,1,0,5,80.0
+2026-06-13,DOBRADEIRA,1,0,1,0,1,0.0
+2026-06-13,DURST,24,24,0,0,24,100.0
+2026-06-13,FECHAMENTO DE KIT,5,0,0,5,0,0.0
+2026-06-13,MESA DE REVISÃO 1,1,0,1,0,1,0.0
+2026-06-13,PLOTTER VD330,2,1,0,1,1,100.0
+2026-06-13,REBOBINADEIRA ECO,10,5,0,5,5,100.0
+2026-06-13,REVISORA VRR STD 350,9,8,0,1,8,100.0
+2026-06-13,TERCEIROS,1,0,1,0,1,0.0
+2026-06-13,TROQUELADORA,4,1,0,3,1,100.0
+2026-06-14,BATIDA,10,7,3,0,10,70.0
+2026-06-14,DURST,1,0,1,0,1,0.0
+2026-06-14,REBOBINADEIRA ECO,15,12,0,3,12,100.0
+2026-06-14,REVISORA VRR STD 350,4,0,4,0,4,0.0
+2026-06-14,TROQUELADORA,2,0,2,0,2,0.0
+2026-06-15,BATIDA,7,2,5,0,7,28.57
+2026-06-15,BROTECH CDF330,26,26,0,0,26,100.0
+2026-06-15,DOBRADEIRA,4,2,0,2,2,100.0
+2026-06-15,DURST,12,6,6,0,12,50.0
+2026-06-15,EMBALAGEM FINAL,29,0,16,13,16,0.0
+2026-06-15,ETIRAMA FIT,3,3,0,0,3,100.0
+2026-06-15,ETIRAMA ONE,1,1,0,0,1,100.0
+2026-06-15,ETIRAMA WINE,4,0,4,0,4,0.0
+2026-06-15,GUILHOTINA,5,0,5,0,5,0.0
+2026-06-15,MESA DE REVISÃO 1,6,0,0,6,0,0.0
+2026-06-15,PLOTTER VD330,1,0,0,1,0,0.0
+2026-06-15,REBOBINADEIRA ECO,11,5,2,4,7,71.43
+2026-06-15,REVISORA VRR STD 350,13,8,4,1,12,66.67
+2026-06-15,REVISÃO MANUAL,1,0,1,0,1,0.0
+2026-06-15,TROQUELADORA,1,1,0,0,1,100.0`;
+allData=parseCSV(EMBEDDED_CSV);
+populateMachines();
+const _dates=[...new Set(allData.map(d=>d.date))].sort();
+document.getElementById('fDate').value=_dates[_dates.length-1];
+render();
+</script>
+</body>
+</html>
