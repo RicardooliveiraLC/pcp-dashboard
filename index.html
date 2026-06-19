@@ -123,8 +123,6 @@ footer{flex:0 0 auto;text-align:center;padding:6px;font-size:10px;color:var(--mu
   </div>
   <div class="hdr-right">
     <span class="badge-status" id="fileStatus">⏳ Carregando dados...</span>
-    <button class="btn btn-ghost" onclick="document.getElementById('csvIn').click()">⬆ Carregar CSV</button>
-    <input type="file" id="csvIn" accept=".csv" style="display:none" onchange="loadFile(event)">
   </div>
 </div>
 <div class="kpi-row">
@@ -146,6 +144,12 @@ footer{flex:0 0 auto;text-align:center;padding:6px;font-size:10px;color:var(--mu
   </div>
   <div class="fg" id="dpWrap" style="display:none"><span class="flbl">Data</span>
     <input type="date" id="fDate" onchange="render()">
+  </div>
+  <div class="fg"><span class="flbl">Mês/Ano</span>
+    <select id="fMonth" onchange="render()"><option value="Todos">Todos</option></select>
+  </div>
+  <div class="fg"><span class="flbl">Semana</span>
+    <select id="fWeek" onchange="render()"><option value="Todos">Todas</option></select>
   </div>
 </div>
 <div class="main">
@@ -183,7 +187,28 @@ footer{flex:0 0 auto;text-align:center;padding:6px;font-size:10px;color:var(--mu
 <footer id="footerTxt">Label Code · PCP</footer>
 <script>
 let allData=[], chartM=null, chartMo=null;
- 
+
+// Retorna a segunda-feira da semana de uma data (YYYY-MM-DD)
+function weekMonday(dateStr){
+  const d=new Date(dateStr+'T00:00:00');
+  const day=d.getDay()||7; // domingo=7
+  d.setDate(d.getDate()-(day-1));
+  return d.toISOString().slice(0,10);
+}
+// Formata semana como "Seg DD/MM – Dom DD/MM/YYYY"
+function weekLabel(mondayStr){
+  const mon=new Date(mondayStr+'T00:00:00');
+  const sun=new Date(mon);sun.setDate(mon.getDate()+6);
+  const fmt=d=>`${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`;
+  return `${fmt(mon)} – ${fmt(sun)}/${sun.getFullYear()}`;
+}
+// Formata YYYY-MM como "Mês YYYY" em pt-BR
+function monthLabel(ym){
+  const [y,m]=ym.split('-');
+  const names=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  return `${names[+m-1]}/${y}`;
+}
+
 function parseCSV(txt){
   const lines=txt.trim().replace(/^﻿/,'').split('\n');
   return lines.slice(1).map(l=>{const p=l.split(',');
@@ -191,37 +216,58 @@ function parseCSV(txt){
       qty:+p[2]||0,onTime:+p[3]||0,late:+p[4]||0,extra:+p[5]||0,prog:+p[6]||0};
   }).filter(Boolean);
 }
- 
-function loadFile(ev){
-  const f=ev.target.files[0];if(!f)return;
-  const r=new FileReader();
-  r.onload=e=>{allData=parseCSV(e.target.result);
-    setStatus('✅ '+f.name,true);populateMachines();render();};
-  r.readAsText(f,'UTF-8');
-}
+
 function setStatus(msg,ok){const el=document.getElementById('fileStatus');
   el.textContent=msg;el.className='badge-status'+(ok?' on':'');}
 function onPeriodChange(){
   document.getElementById('dpWrap').style.display=
     document.getElementById('fPeriod').value==='specific'?'':'none';render();
 }
-function populateMachines(){
-  const sel=document.getElementById('fMachine'),cur=sel.value;
+function populateFilters(){
+  // Máquina
+  const selM=document.getElementById('fMachine'),curM=selM.value;
   const ms=[...new Set(allData.map(d=>d.machine))].sort();
-  sel.innerHTML='<option value="Todos">Todos</option>';
-  ms.forEach(m=>{const o=document.createElement('option');o.value=o.textContent=m;sel.appendChild(o);});
-  sel.value=ms.includes(cur)?cur:'Todos';
+  selM.innerHTML='<option value="Todos">Todos</option>';
+  ms.forEach(m=>{const o=document.createElement('option');o.value=o.textContent=m;selM.appendChild(o);});
+  selM.value=ms.includes(curM)?curM:'Todos';
+  // Mês/Ano
+  const selMo=document.getElementById('fMonth'),curMo=selMo.value;
+  const months=[...new Set(allData.map(d=>d.date.slice(0,7)))].sort();
+  selMo.innerHTML='<option value="Todos">Todos</option>';
+  months.forEach(ym=>{const o=document.createElement('option');o.value=ym;o.textContent=monthLabel(ym);selMo.appendChild(o);});
+  selMo.value=months.includes(curMo)?curMo:'Todos';
+  // Semana
+  const selW=document.getElementById('fWeek'),curW=selW.value;
+  const weeks=[...new Set(allData.map(d=>weekMonday(d.date)))].sort();
+  selW.innerHTML='<option value="Todos">Todas</option>';
+  weeks.forEach(w=>{const o=document.createElement('option');o.value=w;o.textContent=weekLabel(w);selW.appendChild(o);});
+  selW.value=weeks.includes(curW)?curW:'Todos';
 }
+// alias para compatibilidade
+function populateMachines(){populateFilters();}
 function getFiltered(){
   const mach=document.getElementById('fMachine').value;
   const period=document.getElementById('fPeriod').value;
   const dv=document.getElementById('fDate').value;
+  const month=document.getElementById('fMonth').value;
+  const week=document.getElementById('fWeek').value;
   let dateData=[...allData];
+  // Período base
   if(period==='latest'){
     const last=[...new Set(allData.map(d=>d.date))].sort().pop();
     dateData=allData.filter(d=>d.date===last);
     document.getElementById('fDate').value=last;
-  }else if(period==='specific'&&dv) dateData=allData.filter(d=>d.date===dv);
+  }else if(period==='specific'&&dv){
+    dateData=allData.filter(d=>d.date===dv);
+  }
+  // Mês/Ano (aplicado sobre período; se "all" usa tudo)
+  if(month!=='Todos') dateData=dateData.filter(d=>d.date.slice(0,7)===month);
+  // Semana (seg–dom)
+  if(week!=='Todos'){
+    const sun=new Date(week+'T00:00:00');sun.setDate(sun.getDate()+6);
+    const sunStr=sun.toISOString().slice(0,10);
+    dateData=dateData.filter(d=>d.date>=week&&d.date<=sunStr);
+  }
   const main=mach==='Todos'?dateData:dateData.filter(d=>d.machine===mach);
   return{main,dateFiltered:dateData};
 }
@@ -350,7 +396,7 @@ function render(){
   document.getElementById('footerTxt').textContent=
     `Label Code · PCP — Atendimento à Programação · ${ds} · Meta 90% · ${new Date().toLocaleString('pt-BR')}`;
 }
- 
+
 // Bootstrap: carrega CSV do mesmo servidor (GitHub Pages)
 fetch('./Dashboard_PCP.csv')
   .then(r => {
